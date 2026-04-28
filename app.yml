@@ -1,0 +1,1 @@
+command: ["uvicorn", "hhs_lakehouse_architecture.backend.app:app", "--workers", "2"]
