@@ -2,7 +2,6 @@
 __pycache__/
 *.py[oc]
 build/
-dist/
 wheels/
 *.egg-info
 
@@ -16,7 +15,6 @@ src/hhs_lakehouse_architecture/_version.py
 src/hhs_lakehouse_architecture/_metadata.py
 
 # build files
-dist
 
 # js-related
 node_modules/
@@ -38,3 +36,4 @@ node_modules/
 
 # UI dist folder
 src/hhs_lakehouse_architecture/__dist__/
+.vercel
