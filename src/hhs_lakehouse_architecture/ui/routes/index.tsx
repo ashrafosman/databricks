@@ -2970,6 +2970,22 @@ function Chapter10() {
   const [calcVpcPrefix, setCalcVpcPrefix] = useState(16);
   const [calcSubnetPrefix, setCalcSubnetPrefix] = useState(21);
   const [calcWorkspaces, setCalcWorkspaces] = useState(4);
+  const [dotStep, setDotStep] = useState(-1);
+
+  // Sequential dot animation sequence: cp→hub→dev→hub→shared→hub→staging→hub→prod→hub→onprem→hub (stop)
+  const DOT_SEQUENCE = [
+    { fx: 912, fy: 250, tx: 480, ty: 250, color: "#6366f1", dur: 1.3 }, // cp → hub
+    { fx: 480, fy: 250, tx: 165, ty: 110, color: "#0ea5e9", dur: 1.05 }, // hub → dev
+    { fx: 165, fy: 110, tx: 480, ty: 250, color: "#0ea5e9", dur: 1.05 }, // dev → hub
+    { fx: 480, fy: 250, tx: 795, ty: 390, color: "#8b5cf6", dur: 1.05 }, // hub → shared
+    { fx: 795, fy: 390, tx: 480, ty: 250, color: "#8b5cf6", dur: 1.05 }, // shared → hub
+    { fx: 480, fy: 250, tx: 165, ty: 390, color: "#f59e0b", dur: 1.05 }, // hub → staging
+    { fx: 165, fy: 390, tx: 480, ty: 250, color: "#f59e0b", dur: 1.05 }, // staging → hub
+    { fx: 480, fy: 250, tx: 795, ty: 110, color: "#10b981", dur: 1.05 }, // hub → prod
+    { fx: 795, fy: 110, tx: 480, ty: 250, color: "#10b981", dur: 1.05 }, // prod → hub
+    { fx: 480, fy: 250, tx:  48, ty: 250, color: "#64748b", dur: 1.3  }, // hub → onprem
+    { fx:  48, fy: 250, tx: 480, ty: 250, color: "#64748b", dur: 1.3  }, // onprem → hub (stop)
+  ];
 
   useEffect(() => {
     let cancelled = false;
@@ -2991,6 +3007,14 @@ function Chapter10() {
     return () => { cancelled = true; };
   }, []);
 
+  // Start dot sequence once the network is fully drawn
+  useEffect(() => {
+    if (phase === 6) {
+      const t = setTimeout(() => setDotStep(0), 400);
+      return () => clearTimeout(t);
+    }
+  }, [phase]);
+
   const nodeMap = Object.fromEntries(NET_NODES.map(n => [n.id, n])) as Record<NetNodeId, NetNode>;
   const sel = nodeMap[selected];
 
@@ -3002,6 +3026,7 @@ function Chapter10() {
   };
 
   function handleReplay() {
+    setDotStep(-1);
     setPhase(0);
     setTimeout(() => { setPhase(1); }, 100);
     setTimeout(() => { setPhase(2); }, 800);
@@ -3102,16 +3127,7 @@ function Chapter10() {
                   animate={{ pathLength: visible ? 1 : 0, opacity: visible ? 0.65 : 0 }}
                   transition={{ duration: 0.75, ease: "easeInOut" }}
                 />
-                {phase >= 6 && visible && (
-                  <circle r="3.5" fill={edge.color} opacity="0.9">
-                    <animateMotion dur={edge.dashed ? "3.5s" : edge.dotted ? "3s" : "2.2s"} repeatCount="indefinite" path={pathD} />
-                  </circle>
-                )}
-                {phase >= 6 && visible && (
-                  <circle r="2" fill={edge.color} opacity="0.5">
-                    <animateMotion dur={edge.dashed ? "3.5s" : edge.dotted ? "3s" : "2.2s"} repeatCount="indefinite" begin="1s" path={pathD} />
-                  </circle>
-                )}
+
                 {phase >= 4 && visible && !edge.dashed && !edge.dotted && (
                   <motion.text
                     x={midX} y={midY - 7} textAnchor="middle"
@@ -3289,6 +3305,23 @@ function Chapter10() {
               </motion.g>
             );
           })}
+
+          {/* Sequential Dot Animation */}
+          {dotStep >= 0 && dotStep < DOT_SEQUENCE.length && (() => {
+            const s = DOT_SEQUENCE[dotStep];
+            return (
+              <motion.circle
+                key={dotStep}
+                r={5}
+                fill={s.color}
+                cx={s.fx} cy={s.fy}
+                style={{ filter: `drop-shadow(0 0 5px ${s.color})` }}
+                animate={{ cx: s.tx, cy: s.ty }}
+                transition={{ duration: s.dur, ease: "linear" }}
+                onAnimationComplete={() => setDotStep(prev => prev + 1)}
+              />
+            );
+          })()}
 
           {/* Tab Context Overlays */}
 
