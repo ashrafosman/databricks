@@ -2965,8 +2965,11 @@ const NET_EDGES: {
 function Chapter10() {
   const [phase, setPhase] = useState(0);
   const [selected, setSelected] = useState<NetNodeId>("hub");
-  const [panelTab, setPanelTab] = useState<"detail" | "router" | "dns">("detail");
+  const [panelTab, setPanelTab] = useState<"detail" | "router" | "dns" | "calc">("detail");
   const [showDataFlow, setShowDataFlow] = useState(false);
+  const [calcVpcPrefix, setCalcVpcPrefix] = useState(16);
+  const [calcSubnetPrefix, setCalcSubnetPrefix] = useState(21);
+  const [calcWorkspaces, setCalcWorkspaces] = useState(4);
 
   useEffect(() => {
     let cancelled = false;
@@ -3281,14 +3284,14 @@ function Chapter10() {
       {/* Detail panel */}
       <div className="w-[280px] flex flex-col gap-3 overflow-y-auto shrink-0">
         {/* Tab bar */}
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-1 flex gap-1 shrink-0">
-          {(["detail", "router", "dns"] as const).map(tab => (
+        <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-1 flex gap-1 shrink-0 flex-wrap">
+          {(["detail", "router", "dns", "calc"] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setPanelTab(tab)}
-              className={`flex-1 text-[12px] font-semibold py-1 rounded-lg transition-colors ${panelTab === tab ? "bg-blue-900/50 text-blue-300 border border-blue-700/60" : "text-slate-500 hover:text-slate-300"}`}
+              className={`flex-1 text-[11px] font-semibold py-1 rounded-lg transition-colors ${panelTab === tab ? "bg-blue-900/50 text-blue-300 border border-blue-700/60" : "text-slate-500 hover:text-slate-300"}`}
             >
-              {tab === "detail" ? "Node Details" : tab === "router" ? "Router" : "Private DNS"}
+              {tab === "detail" ? "Nodes" : tab === "router" ? "Router" : tab === "dns" ? "DNS" : "Capacity"}
             </button>
           ))}
         </div>
@@ -3471,6 +3474,117 @@ function Chapter10() {
             </div>
           </div>
         )}
+        {panelTab === "calc" && (() => {
+          const vpcIPs = Math.pow(2, 32 - calcVpcPrefix);
+          const subnetIPs = Math.pow(2, 32 - calcSubnetPrefix);
+          const nodesPerSubnet = Math.floor((subnetIPs - 5) / 2);
+          // Each workspace needs 2 same-sized subnets: cluster + container
+          const subnetsPerWs = 2;
+          const subnetsAvailable = Math.floor(vpcIPs / subnetIPs);
+          const maxWorkspacesInVpc = Math.floor(subnetsAvailable / subnetsPerWs);
+          const fits = calcWorkspaces <= maxWorkspacesInVpc;
+          const vpcUsedPct = Math.min(100, Math.round((calcWorkspaces * subnetsPerWs * subnetIPs) / vpcIPs * 100));
+          const ipSpace = (n: number) =>
+            n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` :
+            n >= 1_000 ? `${(n/1_000).toFixed(0)}k` : String(n);
+          const clusterBase = `10.${calcWorkspaces}.0.0/${calcSubnetPrefix}`;
+          const containerBase = `10.${calcWorkspaces}.${subnetIPs >>> 8}.0/${calcSubnetPrefix}`;
+          return (
+            <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-4 overflow-y-auto">
+              <div>
+                <p className="text-sm font-bold text-white mb-0.5">Capacity Calculator</p>
+                <p className="text-[12px] text-slate-500">Nodes per subnet &amp; workspaces per VPC.</p>
+              </div>
+
+              {/* Sliders */}
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-[12px] text-slate-400">VPC CIDR Prefix</span>
+                    <span className="text-[12px] font-mono text-blue-300">/{calcVpcPrefix} ({ipSpace(vpcIPs)} IPs)</span>
+                  </div>
+                  <input type="range" min={14} max={22} step={1} value={calcVpcPrefix}
+                    onChange={e => setCalcVpcPrefix(Number(e.target.value))}
+                    className="w-full h-1.5 rounded-full accent-blue-500 cursor-pointer" />
+                  <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
+                    <span>/14 (256k)</span><span>/22 (1k)</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-[12px] text-slate-400">Subnet Prefix</span>
+                    <span className="text-[12px] font-mono text-sky-300">/{calcSubnetPrefix} ({ipSpace(subnetIPs)} IPs)</span>
+                  </div>
+                  <input type="range" min={19} max={26} step={1} value={calcSubnetPrefix}
+                    onChange={e => setCalcSubnetPrefix(Number(e.target.value))}
+                    className="w-full h-1.5 rounded-full accent-sky-500 cursor-pointer" />
+                  <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
+                    <span>/19 (8k)</span><span>/26 (64)</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-[12px] text-slate-400">Workspaces</span>
+                    <span className={`text-[12px] font-mono ${fits ? "text-emerald-400" : "text-red-400"}`}>{calcWorkspaces} ws</span>
+                  </div>
+                  <input type="range" min={1} max={50} step={1} value={calcWorkspaces}
+                    onChange={e => setCalcWorkspaces(Number(e.target.value))}
+                    className="w-full h-1.5 rounded-full accent-emerald-500 cursor-pointer" />
+                  <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
+                    <span>1</span><span>50</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Results */}
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Results</p>
+                {[
+                  { label: "Nodes per subnet", value: nodesPerSubnet.toLocaleString(), color: "#7dd3fc" },
+                  { label: "Max workspaces in VPC", value: maxWorkspacesInVpc.toString(), color: fits ? "#6ee7b7" : "#fca5a5" },
+                  { label: "VPC address usage", value: `${vpcUsedPct}%`, color: vpcUsedPct > 80 ? "#fca5a5" : "#fcd34d" },
+                  { label: "Fits in VPC?", value: fits ? "✓ Yes" : "✗ Overflow", color: fits ? "#6ee7b7" : "#fca5a5" },
+                ].map((row, i) => (
+                  <div key={i} className="flex justify-between items-center">
+                    <span className="text-[13px] text-slate-500">{row.label}</span>
+                    <span className="text-[13px] font-semibold font-mono" style={{ color: row.color }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* VPC usage bar */}
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-[12px] text-slate-500">VPC utilization</span>
+                  <span className="text-[12px] text-slate-500">{vpcUsedPct}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(vpcUsedPct, 100)}%`, background: vpcUsedPct > 90 ? "#ef4444" : vpcUsedPct > 70 ? "#f59e0b" : "#10b981" }}
+                  />
+                </div>
+              </div>
+
+              {/* Subnet layout preview */}
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Subnet Layout (WS 1)</p>
+                {[
+                  { label: "Cluster Subnet", cidr: clusterBase, color: "#7dd3fc" },
+                  { label: "Container Subnet", cidr: containerBase, color: "#a5b4fc" },
+                ].map((row, i) => (
+                  <div key={i} className="flex justify-between items-center">
+                    <span className="text-[12px] text-slate-500">{row.label}</span>
+                    <span className="text-[11px] font-mono" style={{ color: row.color }}>{row.cidr}</span>
+                  </div>
+                ))}
+                <p className="text-[11px] text-slate-600 pt-0.5">AWS reserves 5 IPs/subnet · 2 IPs/node (host + container)</p>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
