@@ -4564,17 +4564,6 @@ function Chapter14() {
   // Reset step when pattern changes
   useEffect(() => setStep(0), [pattern]);
 
-  const isPush = pattern === "push";
-  const isPull = pattern === "pull";
-
-  // PUSH steps: 1=agency glows, 2=read packet, 3=job active, 4=write packet, 5=central glows
-  // PULL steps: 1=notify packet, 2=central validates, 3=job active+read, 4=write packet, 5=central glows
-  const agencyActive  = step === 1 || (isPush && step === 2) || (isPull && step === 1);
-  const jobActive     = step === 3;
-  const centralActive = step === 2 && isPull ? true : step === 5;
-  const showReadPacket  = isPush ? step === 2 : step === 3;
-  const showWritePacket = step === 4;
-  const showNotifyPacket = isPull && step === 1;
 
   const CENTRAL_AGENCY = [
     { id: "cms", label: "CMS", color: "#3b82f6" },
@@ -4869,203 +4858,24 @@ function Chapter14() {
         {/* ── PUSH ──────────────────────────────────────────── */}
         {pattern === "push" && (
           <motion.div key="push" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
-            className="flex-1 flex flex-col gap-4 overflow-y-auto"
+            className="flex-1 overflow-y-auto"
           >
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 shrink-0">
-            {/* Animated diagram */}
-            <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+            <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 flex flex-col gap-6">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">PUSH — Agency-Managed ETL</span>
-                <p className="text-slate-400 text-xs mt-0.5">Agency owns and runs the ETL job. It reads its own data and pushes results into HHS Central's published catalog.</p>
-              </div>
-
-              {/* Diagram area — matches slide structure */}
-              <div className="flex-1 relative min-h-[300px]" style={{minHeight:300}}>
-
-                {/* Central Container (top) */}
-                <motion.div animate={{borderColor: centralActive ? "#22c55e" : "#334155", boxShadow: centralActive ? "0 0 16px #22c55e44" : "none"}}
-                  transition={{duration:0.4}}
-                  className="absolute left-0 right-0 top-0 rounded-lg border-2 p-3"
-                  style={{height:120, background:"#0f2718"}}
-                >
-                  <div className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-2">Central Container — HHS Central</div>
-                  <div className="flex gap-3 items-start">
-                    {/* catalog box */}
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-green-300 font-mono">cms_published</div>
-                      <div className="text-[8px] text-slate-500">catalog</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-slate-300 font-mono">schema X</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    {/* tableP — lights up on centralActive */}
-                    <motion.div animate={{borderColor: centralActive ? "#22c55e88" : "#334155", backgroundColor: centralActive ? "#14532d44" : "#1e293b"}}
-                      transition={{duration:0.4}}
-                      className="border rounded px-2 py-1.5"
-                    >
-                      <div className="text-[8px] text-green-300 font-mono">tableP</div>
-                      <div className="text-[8px] text-slate-500">result data</div>
-                    </motion.div>
-                  </div>
-                  {/* metadata/ACLs badge */}
-                  <motion.div animate={{opacity: step === 5 ? 1 : 0, y: step === 5 ? 0 : 4}}
-                    transition={{duration:0.4}}
-                    className="absolute bottom-2 right-3 bg-blue-900/60 border border-blue-600 rounded px-2 py-0.5"
-                  >
-                    <span className="text-[8px] text-blue-300 font-bold">metadata + ACLs set by CMS</span>
-                  </motion.div>
-                </motion.div>
-
-                {/* Vertical connector + labels (middle zone) */}
-                <div className="absolute left-0 right-0" style={{top:122, height:56}}>
-                  {/* write result data label + arrow up */}
-                  <div className="absolute left-[45%] top-0 flex flex-col items-center gap-0.5">
-                    <svg width="2" height="20" viewBox="0 0 2 20">
-                      <line x1="1" y1="20" x2="1" y2="4" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="3 2"/>
-                      <polygon points="1,0 -2,6 4,6" fill="#22c55e"/>
-                    </svg>
-                    <span className="text-[8px] text-green-600 whitespace-nowrap">write result data</span>
-                  </div>
-                  {/* Job node */}
-                  <motion.div
-                    animate={{
-                      borderColor: jobActive ? "#3b82f6" : "#334155",
-                      boxShadow: jobActive ? "0 0 14px #3b82f644" : "none",
-                      backgroundColor: jobActive ? "#1e3a5f" : "#1e293b",
-                    }}
-                    transition={{duration:0.4}}
-                    className="absolute border rounded-lg px-3 py-1.5 text-center"
-                    style={{right:16, top:8}}
-                  >
-                    <div className="text-[9px] font-bold text-blue-300">ETL Job</div>
-                    <div className="text-[8px] text-slate-500">owned by CMS</div>
-                  </motion.div>
-                  {/* read source data label + arrow down */}
-                  <div className="absolute left-[45%] bottom-0 flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-amber-600 whitespace-nowrap">read source data</span>
-                    <svg width="2" height="20" viewBox="0 0 2 20">
-                      <line x1="1" y1="0" x2="1" y2="16" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 2"/>
-                      <polygon points="1,20 -2,14 4,14" fill="#f59e0b"/>
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Agency Workspace (bottom) */}
-                <motion.div
-                  animate={{borderColor: agencyActive ? "#3b82f6" : "#334155", boxShadow: agencyActive ? "0 0 16px #3b82f644" : "none"}}
-                  transition={{duration:0.4}}
-                  className="absolute left-0 right-0 rounded-lg border-2 p-3"
-                  style={{top:178, height:120, background:"#0c1a2e"}}
-                >
-                  <div className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-2">CMS Agency Workspace — cms_prd</div>
-                  <div className="flex gap-3 items-start">
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-blue-300 font-mono">cms_prd</div>
-                      <div className="text-[8px] text-slate-500">catalog</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-slate-300 font-mono">schema Y</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    {/* source data — lights up on agencyActive */}
-                    <motion.div animate={{borderColor: agencyActive ? "#3b82f688" : "#334155", backgroundColor: agencyActive ? "#1e3a5f44" : "#1e293b"}}
-                      transition={{duration:0.4}}
-                      className="border rounded px-2 py-1.5"
-                    >
-                      <div className="text-[8px] text-blue-300 font-mono">data A, B…</div>
-                      <div className="text-[8px] text-slate-500">source tables</div>
-                    </motion.div>
-                  </div>
-                  <div className="mt-2 text-[8px] text-slate-600">CMS runs its own ETL job → pushes to Central → sets ACLs on published tables</div>
-                </motion.div>
-
-                {/* Animated read packet (amber, moves up from agency to job area) */}
-                <AnimatePresence>
-                  {showReadPacket && (
-                    <motion.div key="read-pkt" initial={{bottom:178,left:"47%",opacity:0,scale:0.5}}
-                      animate={{bottom:230,left:"47%",opacity:1,scale:1}}
-                      exit={{opacity:0,scale:0}}
-                      transition={{duration:0.9,ease:"easeInOut"}}
-                      className="absolute w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center"
-                      style={{zIndex:10}}
-                    >
-                      <span className="text-[6px] text-black font-bold">↑</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Animated write packet (green, moves up from job area to central) */}
-                <AnimatePresence>
-                  {showWritePacket && (
-                    <motion.div key="write-pkt" initial={{bottom:230,left:"44%",opacity:0,scale:0.5}}
-                      animate={{bottom:280,left:"44%",opacity:1,scale:1}}
-                      exit={{opacity:0,scale:0}}
-                      transition={{duration:0.9,ease:"easeInOut"}}
-                      className="absolute w-4 h-4 rounded-full bg-green-400 flex items-center justify-center"
-                      style={{zIndex:10}}
-                    >
-                      <span className="text-[6px] text-black font-bold">↑</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-              </div>
-
-              {/* Step indicator */}
-              <div className="flex gap-1.5 justify-center shrink-0">
-                {["Idle","Source data","Read→Job","Processing","Write→Central","Published"].map((label,i) => (
-                  <div key={i} className={`h-1.5 rounded-full transition-all ${step===i?"w-8 bg-blue-500":"w-1.5 bg-slate-700"}`} title={label}/>
-                ))}
-              </div>
-            </div>
-
-            {/* Steps sidebar */}
-            <div className="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
-              <h4 className="text-sm font-bold text-slate-200">CMS Agency Steps (PUSH)</h4>
-              {[
-                {n:1, active: step===1, color:"#3b82f6", text:"Source data lives in CMS workspace (cms_prd catalog, schema Y)"},
-                {n:2, active: step===2, color:"#f59e0b", text:"Agency ETL job reads source data from its own container"},
-                {n:3, active: step===3, color:"#3b82f6", text:"Job transforms data — agency controls all transformation logic"},
-                {n:4, active: step===4, color:"#22c55e", text:"Job writes result to Central container (cms_published catalog, schema X, tableP)"},
-                {n:5, active: step===5, color:"#22c55e", text:"Agency sets metadata and ACLs on published tables — Central monitors quality"},
-              ].map(s => (
-                <motion.div key={s.n} animate={{opacity: s.active ? 1 : 0.5}} className="flex gap-3">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5 transition-colors"
-                    style={{backgroundColor: s.active ? s.color : "#334155"}}
-                  >{s.n}</div>
-                  <p className="text-xs text-slate-400 leading-relaxed">{s.text}</p>
-                </motion.div>
-              ))}
-              <div className="mt-2 bg-blue-900/20 border border-blue-800 rounded-lg p-3">
-                <div className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1">Central Team Role</div>
-                <p className="text-xs text-slate-400">Provides publishing infrastructure and network security. Monitors data freshness. Does NOT own or run the ETL — that stays with the agency.</p>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-3">
-                <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1">When to Use</div>
-                <p className="text-xs text-slate-500">Agencies with mature data engineering teams. Federal programs with established data stewardship (e.g. CMS Medicaid, CDC surveillance systems).</p>
-              </div>
-            </div>
-            </div>
-            {/* ── Metadata Management — Option 1 (PUSH) ── */}
-            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4 shrink-0">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Option 1 — Metadata Management (PUSH)</span>
-                <p className="text-slate-400 text-xs mt-0.5">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-400">PUSH — Agency-Managed ETL · Metadata Management</span>
+                <p className="text-slate-300 text-sm mt-2">
                   Each agency owns its own catalogs. Agencies receive{" "}
-                  <code className="text-blue-300 bg-slate-800 px-1 rounded text-[9px]">USE CATALOG + CREATE SCHEMA</code>{" "}
+                  <code className="text-blue-300 bg-slate-800 px-1.5 py-0.5 rounded text-xs">USE CATALOG + CREATE SCHEMA</code>{" "}
                   on the shared central catalog to publish their data products there.
                 </p>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                 {/* Hierarchy */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">UC Catalog Hierarchy</div>
-                  <div className="text-[9px] text-slate-600 font-mono mb-1 flex gap-4">
-                    <span className="text-slate-500">catalog</span>
+                <div className="flex flex-col gap-2.5">
+                  <div className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-1">UC Catalog Hierarchy</div>
+                  <div className="text-xs text-slate-500 font-mono mb-1 flex gap-4">
+                    <span className="text-slate-400">catalog</span>
                     <span>→ schema</span>
                     <span>→ asset</span>
                   </div>
@@ -5074,15 +4884,15 @@ function Chapter14() {
                   {[
                     { cat:"hhs_dev", env:"dev" }, { cat:"hhs_stg", env:"stg" }, { cat:"hhs_prd", env:"prd" },
                   ].map(row => (
-                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
-                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-green-700/50 bg-green-900/15 ${row.env==="prd"?"border-green-600":""}`}>
-                        <span className="text-[9px] text-green-300 font-mono">{row.cat}</span>
-                        <span className="text-[8px] text-slate-600">HHS</span>
+                    <div key={row.cat} className="flex items-center gap-2 flex-wrap">
+                      <div className={`flex items-center gap-1.5 rounded px-2.5 py-1 border border-green-700/50 bg-green-900/15 ${row.env==="prd"?"border-green-600":""}`}>
+                        <span className="text-xs text-green-300 font-mono">{row.cat}</span>
+                        <span className="text-xs text-slate-500">HHS</span>
                       </div>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-green-400 font-mono">central_schemas</span>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-green-400 font-mono">central_schemas</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs text-slate-500">table/view/model</span>
                     </div>
                   ))}
                   <div className="border-t border-slate-800 my-1"/>
@@ -5091,15 +4901,15 @@ function Chapter14() {
                   {[
                     { cat:"cms_dev", env:"dev" }, { cat:"cms_stg", env:"stg" }, { cat:"cms_prd", env:"prd" },
                   ].map(row => (
-                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
-                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-blue-700/50 bg-blue-900/15 ${row.env==="prd"?"border-blue-600":""}`}>
-                        <span className="text-[9px] text-blue-300 font-mono">{row.cat}</span>
-                        <span className="text-[8px] text-slate-600">CMS</span>
+                    <div key={row.cat} className="flex items-center gap-2 flex-wrap">
+                      <div className={`flex items-center gap-1.5 rounded px-2.5 py-1 border border-blue-700/50 bg-blue-900/15 ${row.env==="prd"?"border-blue-600":""}`}>
+                        <span className="text-xs text-blue-300 font-mono">{row.cat}</span>
+                        <span className="text-xs text-slate-500">CMS</span>
                       </div>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-blue-400 font-mono">agency_schemas</span>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs text-slate-500">table/view/model</span>
                     </div>
                   ))}
                   <div className="border-t border-slate-800 my-1"/>
@@ -5108,289 +4918,100 @@ function Chapter14() {
                   {[
                     { cat:"cdc_dev", env:"dev" }, { cat:"cdc_stg", env:"stg" }, { cat:"cdc_prd", env:"prd" },
                   ].map(row => (
-                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
-                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-emerald-700/50 bg-emerald-900/15 ${row.env==="prd"?"border-emerald-600":""}`}>
-                        <span className="text-[9px] text-emerald-300 font-mono">{row.cat}</span>
-                        <span className="text-[8px] text-slate-600">CDC</span>
+                    <div key={row.cat} className="flex items-center gap-2 flex-wrap">
+                      <div className={`flex items-center gap-1.5 rounded px-2.5 py-1 border border-emerald-700/50 bg-emerald-900/15 ${row.env==="prd"?"border-emerald-600":""}`}>
+                        <span className="text-xs text-emerald-300 font-mono">{row.cat}</span>
+                        <span className="text-xs text-slate-500">CDC</span>
                       </div>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-emerald-400 font-mono">agency_schemas</span>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-emerald-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs text-slate-500">table/view/model</span>
                     </div>
                   ))}
-                  <div className="mt-2 flex gap-4 text-[9px] text-slate-500">
-                    <span><span className="text-slate-400">_prd</span>=prod</span>
-                    <span><span className="text-slate-400">_stg</span>=staging</span>
-                    <span><span className="text-slate-400">_dev</span>=dev</span>
+                  <div className="mt-2 flex gap-5 text-xs text-slate-500">
+                    <span><span className="text-slate-300">_prd</span> = prod</span>
+                    <span><span className="text-slate-300">_stg</span> = staging</span>
+                    <span><span className="text-slate-300">_dev</span> = dev</span>
                   </div>
                 </div>
 
                 {/* Permissions Matrix */}
-                <div className="flex flex-col gap-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Permission Matrix</div>
-                  <table className="w-full text-[9px] border-collapse">
+                <div className="flex flex-col gap-3">
+                  <div className="text-xs font-bold text-slate-300 uppercase tracking-widest">Permission Matrix</div>
+                  <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-slate-700">
-                        <th className="text-left text-slate-500 font-mono py-1 pr-2">Catalog</th>
-                        <th className="text-center text-slate-500 py-1 px-1 w-14">Owner</th>
-                        <th className="text-center text-green-400 py-1 px-1 w-10">HHS</th>
-                        <th className="text-center text-blue-400 py-1 px-1 w-10">CMS</th>
-                        <th className="text-center text-emerald-400 py-1 px-1 w-10">CDC</th>
+                        <th className="text-left text-slate-400 font-mono py-2 pr-3">Catalog</th>
+                        <th className="text-center text-slate-400 py-2 px-2 w-16">Owner</th>
+                        <th className="text-center text-green-400 py-2 px-2 w-12">HHS</th>
+                        <th className="text-center text-blue-400 py-2 px-2 w-12">CMS</th>
+                        <th className="text-center text-emerald-400 py-2 px-2 w-12">CDC</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/50">
                       {([
-                        { cat:"hhs_dev",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",     cdc:"—"     },
-                        { cat:"hhs_stg",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",     cdc:"—"     },
-                        { cat:"hhs_prd",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"UC",    cdc:"UC",   highlight:true },
-                        { cat:"cms_dev",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",   cdc:"—"     },
-                        { cat:"cms_stg",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",   cdc:"—"     },
-                        { cat:"cms_prd",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"UC+CS", cdc:"—",    highlight:true },
-                        { cat:"cdc_dev",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"own"   },
-                        { cat:"cdc_stg",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"own"   },
+                        { cat:"hhs_dev",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",     cdc:"—"      },
+                        { cat:"hhs_stg",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",     cdc:"—"      },
+                        { cat:"hhs_prd",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"UC",    cdc:"UC",    highlight:true },
+                        { cat:"cms_dev",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",   cdc:"—"      },
+                        { cat:"cms_stg",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",   cdc:"—"      },
+                        { cat:"cms_prd",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"UC+CS", cdc:"—",     highlight:true },
+                        { cat:"cdc_dev",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"own"    },
+                        { cat:"cdc_stg",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"own"    },
                         { cat:"cdc_prd",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"UC+CS", highlight:true },
                       ] as {cat:string;owner:string;oc:string;hhs:string;cms:string;cdc:string;highlight?:boolean}[]).map(row => {
                         const cell = (v: string, col: string) => v === "own"
-                          ? <span className="text-slate-500 text-[8px]">own</span>
+                          ? <span className="text-slate-500">own</span>
                           : v === "—" ? <span className="text-slate-700">—</span>
-                          : <span className="font-bold text-[8px]" style={{color:col}}>{v}</span>;
+                          : <span className="font-bold" style={{color:col}}>{v}</span>;
                         return (
                           <tr key={row.cat} className={row.highlight ? "bg-slate-800/40" : ""}>
-                            <td className="py-0.5 pr-2 font-mono" style={{color:row.oc+"bb"}}>{row.cat}</td>
-                            <td className="text-center py-0.5 px-1 font-bold text-[8px]" style={{color:row.oc}}>{row.owner}</td>
-                            <td className="text-center py-0.5 px-1">{cell(row.hhs,"#22c55e")}</td>
-                            <td className="text-center py-0.5 px-1">{cell(row.cms,"#3b82f6")}</td>
-                            <td className="text-center py-0.5 px-1">{cell(row.cdc,"#10b981")}</td>
+                            <td className="py-1.5 pr-3 font-mono" style={{color:row.oc+"bb"}}>{row.cat}</td>
+                            <td className="text-center py-1.5 px-2 font-bold" style={{color:row.oc}}>{row.owner}</td>
+                            <td className="text-center py-1.5 px-2">{cell(row.hhs,"#22c55e")}</td>
+                            <td className="text-center py-1.5 px-2">{cell(row.cms,"#3b82f6")}</td>
+                            <td className="text-center py-1.5 px-2">{cell(row.cdc,"#10b981")}</td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                  <div className="mt-1 flex flex-wrap gap-3 text-[8px] text-slate-500 border-t border-slate-800 pt-2">
-                    <span><span className="font-bold text-slate-300">UC</span>=USE CATALOG</span>
-                    <span><span className="font-bold text-slate-300">CS</span>=CREATE SCHEMA</span>
-                    <span className="text-slate-600">* Also grant USE SCHEMA + SELECT at table level</span>
+                  <div className="flex flex-wrap gap-4 text-xs text-slate-400 border-t border-slate-800 pt-3">
+                    <span><span className="font-bold text-slate-200">UC</span> = USE CATALOG</span>
+                    <span><span className="font-bold text-slate-200">CS</span> = CREATE SCHEMA</span>
+                    <span className="text-slate-500">* Also grant USE SCHEMA + SELECT at table level</span>
                   </div>
                 </div>
 
               </div>
             </div>
-
           </motion.div>
         )}
 
         {/* ── PULL ──────────────────────────────────────────── */}
         {pattern === "pull" && (
           <motion.div key="pull" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
-            className="flex-1 flex flex-col gap-4 overflow-y-auto"
+            className="flex-1 overflow-y-auto"
           >
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 shrink-0">
-            {/* Animated diagram */}
-            <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+            <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 flex flex-col gap-6">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">PULL — Central-Managed ETL</span>
-                <p className="text-slate-400 text-xs mt-0.5">Agency signals readiness. HHS Central owns and runs the ETL job — validating, transforming, and publishing with full governance.</p>
-              </div>
-
-              <div className="flex-1 relative min-h-[300px]" style={{minHeight:300}}>
-
-                {/* Central Container (top) */}
-                <motion.div animate={{borderColor: centralActive ? "#22c55e" : "#334155", boxShadow: centralActive ? "0 0 16px #22c55e44" : "none"}}
-                  transition={{duration:0.4}}
-                  className="absolute left-0 right-0 top-0 rounded-lg border-2 p-3"
-                  style={{height:130, background:"#0f2718"}}
-                >
-                  <div className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-2">HHS Central — Governance Hub</div>
-                  <div className="flex gap-2 items-start flex-wrap">
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-green-300 font-mono">cms_published</div>
-                      <div className="text-[8px] text-slate-500">catalog</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-slate-300 font-mono">schema X</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    <motion.div animate={{borderColor: centralActive ? "#22c55e88" : "#334155", backgroundColor: centralActive ? "#14532d44" : "#1e293b"}}
-                      transition={{duration:0.4}}
-                      className="border rounded px-2 py-1.5"
-                    >
-                      <div className="text-[8px] text-green-300 font-mono">tableP</div>
-                      <div className="text-[8px] text-slate-500">curated result</div>
-                    </motion.div>
-                    {/* Central ETL Job — inside central (owned by central) */}
-                    <motion.div animate={{borderColor: jobActive ? "#22c55e" : "#334155", boxShadow: jobActive ? "0 0 10px #22c55e55" : "none", backgroundColor: jobActive ? "#14532d" : "#1e293b"}}
-                      transition={{duration:0.4}}
-                      className="border rounded-lg px-3 py-1.5 ml-2"
-                    >
-                      <div className="text-[9px] font-bold text-green-300">ETL Job</div>
-                      <div className="text-[8px] text-slate-500">owned by Central</div>
-                    </motion.div>
-                  </div>
-                  <motion.div animate={{opacity: step === 2 ? 1 : 0}} transition={{duration:0.4}}
-                    className="absolute bottom-2 right-3 bg-green-900/60 border border-green-600 rounded px-2 py-0.5"
-                  >
-                    <span className="text-[8px] text-green-300 font-bold">validating quality &amp; compliance…</span>
-                  </motion.div>
-                  <motion.div animate={{opacity: step === 5 ? 1 : 0}} transition={{duration:0.4}}
-                    className="absolute bottom-2 right-3 bg-purple-900/60 border border-purple-600 rounded px-2 py-0.5"
-                  >
-                    <span className="text-[8px] text-purple-300 font-bold">metadata + ACLs set by Central</span>
-                  </motion.div>
-                </motion.div>
-
-                {/* Middle connector zone */}
-                <div className="absolute left-0 right-0" style={{top:132, height:46}}>
-                  <div className="absolute left-[45%] top-0 flex flex-col items-center gap-0.5">
-                    <svg width="2" height="18" viewBox="0 0 2 18">
-                      <line x1="1" y1="18" x2="1" y2="4" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="3 2"/>
-                      <polygon points="1,0 -2,6 4,6" fill="#22c55e"/>
-                    </svg>
-                    <span className="text-[8px] text-green-600 whitespace-nowrap">write result data</span>
-                  </div>
-                  <div className="absolute left-[45%] bottom-0 flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-amber-600 whitespace-nowrap">read source data</span>
-                    <svg width="2" height="18" viewBox="0 0 2 18">
-                      <line x1="1" y1="0" x2="1" y2="14" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 2"/>
-                      <polygon points="1,18 -2,12 4,12" fill="#f59e0b"/>
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Agency Workspace (bottom) */}
-                <motion.div animate={{borderColor: agencyActive ? "#3b82f6" : "#334155", boxShadow: agencyActive ? "0 0 16px #3b82f644" : "none"}}
-                  transition={{duration:0.4}}
-                  className="absolute left-0 right-0 rounded-lg border-2 p-3"
-                  style={{top:178, height:120, background:"#0c1a2e"}}
-                >
-                  <div className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-2">CMS Agency Workspace — cms_prd</div>
-                  <div className="flex gap-3 items-start">
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-blue-300 font-mono">cms_prd</div>
-                      <div className="text-[8px] text-slate-500">catalog</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
-                      <div className="text-[8px] text-slate-300 font-mono">schema Y</div>
-                    </div>
-                    <div className="text-slate-600 text-xs mt-1">→</div>
-                    <motion.div animate={{borderColor: agencyActive ? "#3b82f688" : "#334155", backgroundColor: agencyActive ? "#1e3a5f44" : "#1e293b"}}
-                      transition={{duration:0.4}}
-                      className="border rounded px-2 py-1.5"
-                    >
-                      <div className="text-[8px] text-blue-300 font-mono">data A, B…</div>
-                      <div className="text-[8px] text-slate-500">source tables</div>
-                    </motion.div>
-                  </div>
-                  {/* Notification bubble — visible at step 1 */}
-                  <motion.div animate={{opacity: step === 1 ? 1 : 0, x: step === 1 ? 0 : -8}} transition={{duration:0.4}}
-                    className="mt-2 flex items-center gap-2 bg-purple-900/30 border border-purple-700 rounded px-2 py-1 w-fit"
-                  >
-                    <span className="text-[8px] text-purple-300">📢 Notifying Central: ready to publish</span>
-                  </motion.div>
-                </motion.div>
-
-                {/* Notify packet (purple, moves from agency up to central) */}
-                <AnimatePresence>
-                  {showNotifyPacket && (
-                    <motion.div key="notify-pkt" initial={{bottom:200,left:"30%",opacity:0,scale:0.5}}
-                      animate={{bottom:280,left:"30%",opacity:1,scale:1}}
-                      exit={{opacity:0,scale:0}}
-                      transition={{duration:0.9,ease:"easeInOut"}}
-                      className="absolute w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center"
-                      style={{zIndex:10}}
-                    >
-                      <span className="text-[7px] text-white">📢</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Read packet */}
-                <AnimatePresence>
-                  {showReadPacket && (
-                    <motion.div key="read-pkt2" initial={{bottom:178,left:"47%",opacity:0,scale:0.5}}
-                      animate={{bottom:230,left:"47%",opacity:1,scale:1}}
-                      exit={{opacity:0,scale:0}}
-                      transition={{duration:0.9,ease:"easeInOut"}}
-                      className="absolute w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center"
-                      style={{zIndex:10}}
-                    >
-                      <span className="text-[6px] text-black font-bold">↑</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Write packet */}
-                <AnimatePresence>
-                  {showWritePacket && (
-                    <motion.div key="write-pkt2" initial={{bottom:230,left:"44%",opacity:0,scale:0.5}}
-                      animate={{bottom:280,left:"44%",opacity:1,scale:1}}
-                      exit={{opacity:0,scale:0}}
-                      transition={{duration:0.9,ease:"easeInOut"}}
-                      className="absolute w-4 h-4 rounded-full bg-green-400 flex items-center justify-center"
-                      style={{zIndex:10}}
-                    >
-                      <span className="text-[6px] text-black font-bold">↑</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-              </div>
-
-              {/* Step indicator */}
-              <div className="flex gap-1.5 justify-center shrink-0">
-                {["Idle","Agency notifies","Central validates","Central reads","Write→Central","Published"].map((label,i) => (
-                  <div key={i} className={`h-1.5 rounded-full transition-all ${step===i?"w-8 bg-green-500":"w-1.5 bg-slate-700"}`} title={label}/>
-                ))}
-              </div>
-            </div>
-
-            {/* Steps sidebar */}
-            <div className="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
-              <h4 className="text-sm font-bold text-slate-200">Central Team Steps (PULL)</h4>
-              {[
-                {n:1, active: step===1, color:"#8b5cf6", text:"Agency notifies Central that dataset is ready for publishing"},
-                {n:2, active: step===2, color:"#22c55e", text:"Central validates data quality and checks metadata compliance"},
-                {n:3, active: step===3, color:"#f59e0b", text:"Central ETL job reads source data from agency's container"},
-                {n:4, active: step===4, color:"#22c55e", text:"Job transforms data, writes result to Central container"},
-                {n:5, active: step===5, color:"#22c55e", text:"Central sets standardized metadata and ACLs on all published tables"},
-              ].map(s => (
-                <motion.div key={s.n} animate={{opacity: s.active ? 1 : 0.5}} className="flex gap-3">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5 transition-colors"
-                    style={{backgroundColor: s.active ? s.color : "#334155"}}
-                  >{s.n}</div>
-                  <p className="text-xs text-slate-400 leading-relaxed">{s.text}</p>
-                </motion.div>
-              ))}
-              <div className="mt-2 bg-green-900/20 border border-green-800 rounded-lg p-3">
-                <div className="text-[10px] font-bold text-green-300 uppercase tracking-widest mb-1">Central Team Controls</div>
-                <p className="text-xs text-slate-400">ETL logic, data quality validation, metadata schemas, and ACLs. Agency only provides source data and signals readiness.</p>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-3">
-                <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1">When to Use</div>
-                <p className="text-xs text-slate-500">Agencies without strong data engineering teams. HIPAA/FISMA compliance requires central governance. Central team enforces consistent data standards across all agencies.</p>
-              </div>
-            </div>
-            </div>
-            {/* ── Metadata Management — Option 2 (PULL) ── */}
-            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4 shrink-0">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Option 2 — Metadata Management (PULL)</span>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  Central owns <code className="text-green-300 bg-slate-800 px-1 rounded text-[9px]">cms_published</code> and{" "}
-                  <code className="text-green-300 bg-slate-800 px-1 rounded text-[9px]">cdc_published</code> with Central schemas.
+                <span className="text-xs font-bold uppercase tracking-widest text-green-400">PULL — Central-Managed ETL · Metadata Management</span>
+                <p className="text-slate-300 text-sm mt-2">
+                  Central owns{" "}
+                  <code className="text-green-300 bg-slate-800 px-1.5 py-0.5 rounded text-xs">cms_published</code> and{" "}
+                  <code className="text-green-300 bg-slate-800 px-1.5 py-0.5 rounded text-xs">cdc_published</code> with Central schemas.
                   Agencies keep their own workspace catalogs and get{" "}
-                  <code className="text-green-300 bg-slate-800 px-1 rounded text-[9px]">USE CATALOG</code> to read published data.
+                  <code className="text-green-300 bg-slate-800 px-1.5 py-0.5 rounded text-xs">USE CATALOG</code> to read published data.
                 </p>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                 {/* Hierarchy */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">UC Catalog Hierarchy</div>
-                  <div className="text-[9px] text-slate-600 font-mono mb-1 flex gap-4">
-                    <span className="text-slate-500">catalog</span>
+                <div className="flex flex-col gap-2.5">
+                  <div className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-1">UC Catalog Hierarchy</div>
+                  <div className="text-xs text-slate-500 font-mono mb-1 flex gap-4">
+                    <span className="text-slate-400">catalog</span>
                     <span>→ schema</span>
                     <span>→ asset</span>
                   </div>
@@ -5400,67 +5021,69 @@ function Chapter14() {
                     { cat:"hhs_dev", badge:false }, { cat:"hhs_stg", badge:false }, { cat:"hhs_prd", badge:false },
                     { cat:"cms_published", badge:true }, { cat:"cdc_published", badge:true },
                   ].map(row => (
-                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
-                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border ${row.badge ? "border-green-500 bg-green-900/30" : "border-green-700/50 bg-green-900/15"}`}>
-                        <span className="text-[9px] text-green-300 font-mono">{row.cat}</span>
-                        {row.badge && <span className="text-[7px] text-green-500 bg-green-900 rounded px-1">CENTRAL</span>}
+                    <div key={row.cat} className="flex items-center gap-2 flex-wrap">
+                      <div className={`flex items-center gap-1.5 rounded px-2.5 py-1 border ${row.badge ? "border-green-500 bg-green-900/30" : "border-green-700/50 bg-green-900/15"}`}>
+                        <span className="text-xs text-green-300 font-mono">{row.cat}</span>
+                        {row.badge && <span className="text-[10px] text-green-400 bg-green-900 rounded px-1.5">CENTRAL</span>}
                       </div>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-green-400 font-mono">central_schemas</span>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-green-400 font-mono">central_schemas</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs text-slate-500">table/view/model</span>
                     </div>
                   ))}
                   <div className="border-t border-slate-800 my-1"/>
 
+                  {/* CMS workspace catalogs */}
                   {[
-                    { cat:"cms_dev", env:"dev", color:"blue" }, { cat:"cms_stg", env:"stg", color:"blue" }, { cat:"cms_prd", env:"prd", color:"blue" },
+                    { cat:"cms_dev", env:"dev" }, { cat:"cms_stg", env:"stg" }, { cat:"cms_prd", env:"prd" },
                   ].map(row => (
-                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
-                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-blue-700/50 bg-blue-900/15 ${row.env==="prd"?"border-blue-600":""}`}>
-                        <span className="text-[9px] text-blue-300 font-mono">{row.cat}</span>
-                        <span className="text-[8px] text-slate-600">CMS</span>
+                    <div key={row.cat} className="flex items-center gap-2 flex-wrap">
+                      <div className={`flex items-center gap-1.5 rounded px-2.5 py-1 border border-blue-700/50 bg-blue-900/15 ${row.env==="prd"?"border-blue-600":""}`}>
+                        <span className="text-xs text-blue-300 font-mono">{row.cat}</span>
+                        <span className="text-xs text-slate-500">CMS</span>
                       </div>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-blue-400 font-mono">agency_schemas</span>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-blue-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs text-slate-500">table/view/model</span>
                     </div>
                   ))}
                   <div className="border-t border-slate-800 my-1"/>
 
+                  {/* CDC workspace catalogs */}
                   {[
                     { cat:"cdc_dev", env:"dev" }, { cat:"cdc_stg", env:"stg" }, { cat:"cdc_prd", env:"prd" },
                   ].map(row => (
-                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
-                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-emerald-700/50 bg-emerald-900/15 ${row.env==="prd"?"border-emerald-600":""}`}>
-                        <span className="text-[9px] text-emerald-300 font-mono">{row.cat}</span>
-                        <span className="text-[8px] text-slate-600">CDC</span>
+                    <div key={row.cat} className="flex items-center gap-2 flex-wrap">
+                      <div className={`flex items-center gap-1.5 rounded px-2.5 py-1 border border-emerald-700/50 bg-emerald-900/15 ${row.env==="prd"?"border-emerald-600":""}`}>
+                        <span className="text-xs text-emerald-300 font-mono">{row.cat}</span>
+                        <span className="text-xs text-slate-500">CDC</span>
                       </div>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-emerald-400 font-mono">agency_schemas</span>
-                      <span className="text-slate-700 text-[9px]">→</span>
-                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-emerald-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-600 text-xs">→</span>
+                      <span className="text-xs text-slate-500">table/view/model</span>
                     </div>
                   ))}
-                  <div className="mt-2 flex gap-4 text-[9px] text-slate-500">
-                    <span><span className="text-slate-400">_prd</span>=prod</span>
-                    <span><span className="text-slate-400">_stg</span>=staging</span>
-                    <span><span className="text-slate-400">_dev</span>=dev</span>
+                  <div className="mt-2 flex gap-5 text-xs text-slate-500">
+                    <span><span className="text-slate-300">_prd</span> = prod</span>
+                    <span><span className="text-slate-300">_stg</span> = staging</span>
+                    <span><span className="text-slate-300">_dev</span> = dev</span>
                   </div>
                 </div>
 
                 {/* Permissions Matrix */}
-                <div className="flex flex-col gap-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Permission Matrix</div>
-                  <table className="w-full text-[9px] border-collapse">
+                <div className="flex flex-col gap-3">
+                  <div className="text-xs font-bold text-slate-300 uppercase tracking-widest">Permission Matrix</div>
+                  <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-slate-700">
-                        <th className="text-left text-slate-500 font-mono py-1 pr-2">Catalog</th>
-                        <th className="text-center text-slate-500 py-1 px-1 w-14">Owner</th>
-                        <th className="text-center text-green-400 py-1 px-1 w-10">HHS</th>
-                        <th className="text-center text-blue-400 py-1 px-1 w-10">CMS</th>
-                        <th className="text-center text-emerald-400 py-1 px-1 w-10">CDC</th>
+                        <th className="text-left text-slate-400 font-mono py-2 pr-3">Catalog</th>
+                        <th className="text-center text-slate-400 py-2 px-2 w-16">Owner</th>
+                        <th className="text-center text-green-400 py-2 px-2 w-12">HHS</th>
+                        <th className="text-center text-blue-400 py-2 px-2 w-12">CMS</th>
+                        <th className="text-center text-emerald-400 py-2 px-2 w-12">CDC</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/50">
@@ -5478,36 +5101,36 @@ function Chapter14() {
                         { cat:"cdc_prd",       owner:"CDC", oc:"#10b981", hhs:"UC",  cms:"—",  cdc:"own", highlight:true },
                       ] as {cat:string;owner:string;oc:string;hhs:string;cms:string;cdc:string;highlight?:boolean;pub?:boolean}[]).map(row => {
                         const cell = (v: string, col: string) => v === "own"
-                          ? <span className="text-slate-500 text-[8px]">own</span>
+                          ? <span className="text-slate-500">own</span>
                           : v === "—" ? <span className="text-slate-700">—</span>
-                          : <span className="font-bold text-[8px]" style={{color:col}}>{v}</span>;
+                          : <span className="font-bold" style={{color:col}}>{v}</span>;
                         return (
                           <tr key={row.cat} className={row.pub ? "bg-green-900/15" : row.highlight ? "bg-slate-800/40" : ""}>
-                            <td className="py-0.5 pr-2 font-mono" style={{color:row.oc+"bb"}}>
+                            <td className="py-1.5 pr-3 font-mono" style={{color:row.oc+"bb"}}>
                               {row.cat}
-                              {row.pub && <span className="ml-1 text-[7px] text-green-500 bg-green-900/50 rounded px-1">central</span>}
+                              {row.pub && <span className="ml-1.5 text-[10px] text-green-400 bg-green-900/50 rounded px-1.5">central</span>}
                             </td>
-                            <td className="text-center py-0.5 px-1 font-bold text-[8px]" style={{color:row.oc}}>{row.owner}</td>
-                            <td className="text-center py-0.5 px-1">{cell(row.hhs,"#22c55e")}</td>
-                            <td className="text-center py-0.5 px-1">{cell(row.cms,"#3b82f6")}</td>
-                            <td className="text-center py-0.5 px-1">{cell(row.cdc,"#10b981")}</td>
+                            <td className="text-center py-1.5 px-2 font-bold" style={{color:row.oc}}>{row.owner}</td>
+                            <td className="text-center py-1.5 px-2">{cell(row.hhs,"#22c55e")}</td>
+                            <td className="text-center py-1.5 px-2">{cell(row.cms,"#3b82f6")}</td>
+                            <td className="text-center py-1.5 px-2">{cell(row.cdc,"#10b981")}</td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                  <div className="mt-1 flex flex-wrap gap-3 text-[8px] text-slate-500 border-t border-slate-800 pt-2">
-                    <span><span className="font-bold text-slate-300">UC</span>=USE CATALOG</span>
-                    <span className="text-slate-600">* Also grant USE SCHEMA + SELECT at table level</span>
-                    <span className="text-green-600">cms/cdc_published owned entirely by HHS Central</span>
+                  <div className="flex flex-wrap gap-4 text-xs text-slate-400 border-t border-slate-800 pt-3">
+                    <span><span className="font-bold text-slate-200">UC</span> = USE CATALOG</span>
+                    <span className="text-slate-500">* Also grant USE SCHEMA + SELECT at table level</span>
+                    <span className="text-green-500">cms/cdc_published owned entirely by HHS Central</span>
                   </div>
                 </div>
 
               </div>
             </div>
-
           </motion.div>
         )}
+
 
       </AnimatePresence>
     </div>
