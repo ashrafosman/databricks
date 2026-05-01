@@ -4612,80 +4612,207 @@ function Chapter14() {
           <motion.div key="overview" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
             className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0"
           >
-            {/* Distributed */}
-            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Pattern A — Distributed</span>
-                <h3 className="text-sm font-bold text-slate-100 mt-0.5">Federated: Each agency owns &amp; publishes its catalog</h3>
-              </div>
-              {/* Mini diagram */}
-              <div className="flex-1 flex flex-col items-center gap-3 justify-center min-h-[180px]">
-                {/* UC Metastore at top */}
-                <div className="w-full max-w-xs bg-purple-900/30 border border-purple-600 rounded-lg px-3 py-2 text-center">
-                  <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">HHS Unity Catalog Metastore</div>
-                  <div className="text-[9px] text-purple-400 mt-0.5">Shared discovery · Federated ACLs · Central platform ops</div>
-                </div>
-                {/* Dashed arrows down + agencies */}
-                <div className="flex gap-3 justify-center">
-                  {CENTRAL_AGENCY.map((ag) => (
-                    <div key={ag.id} className="flex flex-col items-center gap-1">
-                      <svg width="2" height="18" viewBox="0 0 2 18">
-                        <line x1="1" y1="0" x2="1" y2="14" stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2"/>
-                        <polygon points="1,18 -2,12 4,12" fill={ag.color}/>
+            {/* ── Distributed panel ── */}
+            {(() => {
+              const activeIdx  = step >= 1 && step <= 4 ? step - 1 : -1;
+              const hubActive  = step === 5;
+              const showPacket = step >= 1 && step <= 4;
+              return (
+                <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Pattern A — Distributed</span>
+                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">Each agency owns &amp; publishes its own catalog</h3>
+                  </div>
+                  <div className="flex-1 relative flex flex-col items-center gap-3 justify-center" style={{minHeight:200}}>
+                    {/* UC Metastore hub */}
+                    <motion.div
+                      animate={{
+                        borderColor: hubActive ? "#a855f7" : "#6d28d9",
+                        boxShadow: hubActive ? "0 0 20px #a855f755" : "0 0 0px transparent",
+                        backgroundColor: hubActive ? "#2e1065" : "#1a0533",
+                      }}
+                      transition={{duration:0.5}}
+                      className="w-full max-w-[280px] rounded-lg border-2 px-3 py-2.5 text-center"
+                    >
+                      <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">HHS Unity Catalog Metastore</div>
+                      <motion.div animate={{opacity: hubActive ? 1 : 0.5}} transition={{duration:0.4}} className="text-[8px] text-purple-400 mt-0.5">
+                        {hubActive ? "All catalogs registered · Federated ACLs active" : "Shared discovery · Federated ACLs · Platform ops"}
+                      </motion.div>
+                    </motion.div>
+                    {/* Connector zone with flying packets */}
+                    <div className="relative w-full max-w-[280px]" style={{height:40}}>
+                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 280 40" preserveAspectRatio="none">
+                        {CENTRAL_AGENCY.map((ag, i) => (
+                          <line key={ag.id} x1={28+i*56+16} y1="40" x2={28+i*56+16} y2="0"
+                            stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2" opacity="0.45"/>
+                        ))}
                       </svg>
-                      <div className="rounded-lg border px-2.5 py-2 text-center" style={{borderColor:ag.color+"55",backgroundColor:ag.color+"18"}}>
-                        <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
-                        <div className="text-[8px] text-slate-500 mt-0.5">owns catalog</div>
-                        <div className="text-[8px] text-slate-600">{ag.id}_prd</div>
-                      </div>
+                      <AnimatePresence>
+                        {showPacket && (() => {
+                          const ag = CENTRAL_AGENCY[activeIdx];
+                          return (
+                            <motion.div key={`pkt-${step}`}
+                              initial={{bottom:0, opacity:1, scale:1}}
+                              animate={{bottom:40, opacity:0, scale:0.6}}
+                              exit={{opacity:0}}
+                              transition={{duration:1.1, ease:"easeOut"}}
+                              className="absolute w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-black"
+                              style={{left: 28+activeIdx*56+10, backgroundColor: ag.color, zIndex:10}}
+                            >{ag.label[0]}</motion.div>
+                          );
+                        })()}
+                      </AnimatePresence>
                     </div>
-                  ))}
+                    {/* Agency cards */}
+                    <div className="flex gap-3 justify-center">
+                      {CENTRAL_AGENCY.map((ag, i) => {
+                        const isActive = i === activeIdx || hubActive;
+                        return (
+                          <motion.div key={ag.id}
+                            animate={{
+                              borderColor: isActive ? ag.color : ag.color+"44",
+                              boxShadow: isActive ? `0 0 12px ${ag.color}44` : "none",
+                              backgroundColor: isActive ? ag.color+"22" : ag.color+"0d",
+                            }}
+                            transition={{duration:0.35}}
+                            className="rounded-lg border px-2.5 py-2 text-center"
+                          >
+                            <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
+                            <div className="text-[8px] text-slate-500 mt-0.5">own catalog</div>
+                            <motion.div animate={{opacity: isActive ? 1 : 0.4}} className="text-[8px] text-slate-600">{ag.id}_prd</motion.div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                    <motion.div animate={{opacity: step===0 ? 0 : 1}} transition={{duration:0.3}}
+                      className="text-[9px] text-center"
+                      style={{color: hubActive ? "#a855f7" : CENTRAL_AGENCY[Math.max(0,activeIdx)]?.color ?? "#64748b"}}
+                    >
+                      {hubActive
+                        ? "All agencies connected — cross-agency access via UC grants"
+                        : activeIdx >= 0 ? `${CENTRAL_AGENCY[activeIdx].label} publishing catalog to UC Metastore...` : ""}
+                    </motion.div>
+                    <div className="flex gap-1 justify-center">
+                      {Array.from({length:6}).map((_,i) => (
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step===i ? "w-5 bg-blue-500" : "w-1 bg-slate-700"}`}/>
+                      ))}
+                    </div>
+                  </div>
+                  <ul className="space-y-1 shrink-0">
+                    {["Agency controls its own catalog, quality, and ACLs","Central team provides platform ops and secure blueprints","Best for agencies with mature data engineering","Cross-agency reads via UC grants — no isolation"].map(pt=>(
+                      <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-blue-400 shrink-0">·</span>{pt}</li>
+                    ))}
+                  </ul>
                 </div>
-                <div className="text-[9px] text-slate-600 text-center">Each agency publishes its own data products · No central transformation</div>
-              </div>
-              <ul className="space-y-1.5 shrink-0">
-                {["Agency controls its own catalog, data quality, and ACLs","Central team provides platform ops and secure blueprints","Best for agencies with strong data engineering maturity","Cross-agency access via UC grants — no isolation enforcement"].map(pt=>(
-                  <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-blue-400 shrink-0">·</span>{pt}</li>
-                ))}
-              </ul>
-            </div>
+              );
+            })()}
 
-            {/* Centralized */}
-            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B — Centralized</span>
-                <h3 className="text-sm font-bold text-slate-100 mt-0.5">Hub: HHS Central governs all published data</h3>
-              </div>
-              <div className="flex-1 flex flex-col items-center gap-3 justify-center min-h-[180px]">
-                {/* Central hub */}
-                <div className="w-full max-w-xs bg-green-900/25 border border-green-600 rounded-lg px-3 py-2.5 text-center">
-                  <div className="text-[10px] font-bold text-green-300 uppercase tracking-wider">HHS Central</div>
-                  <div className="text-[9px] text-green-500 mt-0.5">Central catalog · Quality assurance · Metadata standards · ACLs</div>
-                </div>
-                {/* Bi-directional arrows + isolated agencies */}
-                <div className="flex gap-3 justify-center">
-                  {CENTRAL_AGENCY.map((ag) => (
-                    <div key={ag.id} className="flex flex-col items-center gap-1">
-                      <svg width="14" height="28" viewBox="0 0 14 28">
-                        <line x1="7" y1="0" x2="7" y2="28" stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2"/>
-                        <polygon points="7,0 3,8 11,8" fill={ag.color}/>
-                        <polygon points="7,28 3,20 11,20" fill={ag.color}/>
+            {/* ── Centralized panel ── */}
+            {(() => {
+              const activeIdx       = step >= 1 && step <= 4 ? step - 1 : -1;
+              const hubActive       = step === 5;
+              const showUpPacket    = step >= 1 && step <= 4;
+              const showDownPackets = step === 5;
+              return (
+                <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B — Centralized</span>
+                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">HHS Central governs all published data</h3>
+                  </div>
+                  <div className="flex-1 relative flex flex-col items-center gap-3 justify-center" style={{minHeight:200}}>
+                    {/* Central hub */}
+                    <motion.div
+                      animate={{
+                        borderColor: hubActive ? "#22c55e" : "#16a34a",
+                        boxShadow: hubActive ? "0 0 20px #22c55e55" : "0 0 0px transparent",
+                        backgroundColor: hubActive ? "#052e16" : "#0c1f10",
+                      }}
+                      transition={{duration:0.5}}
+                      className="w-full max-w-[280px] rounded-lg border-2 px-3 py-2.5 text-center"
+                    >
+                      <div className="text-[10px] font-bold text-green-300 uppercase tracking-wider">HHS Central</div>
+                      <motion.div animate={{opacity: hubActive ? 1 : 0.5}} transition={{duration:0.4}} className="text-[8px] text-green-500 mt-0.5">
+                        {hubActive ? "Validated · Published · ACLs enforced" : "Central catalog · Quality assurance · Metadata · ACLs"}
+                      </motion.div>
+                    </motion.div>
+                    {/* Connector zone with packets */}
+                    <div className="relative w-full max-w-[280px]" style={{height:40}}>
+                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 280 40" preserveAspectRatio="none">
+                        {CENTRAL_AGENCY.map((ag, i) => (
+                          <line key={ag.id} x1={28+i*56+16} y1="0" x2={28+i*56+16} y2="40"
+                            stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2" opacity="0.45"/>
+                        ))}
                       </svg>
-                      <div className="rounded-lg border px-2.5 py-2 text-center" style={{borderColor:ag.color+"55",backgroundColor:ag.color+"18"}}>
-                        <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
-                        <div className="text-[8px] text-slate-500 mt-0.5">isolated</div>
-                      </div>
+                      <AnimatePresence>
+                        {showUpPacket && (() => {
+                          const ag = CENTRAL_AGENCY[activeIdx];
+                          return (
+                            <motion.div key={`notify-${step}`}
+                              initial={{bottom:0, opacity:1, scale:1}}
+                              animate={{bottom:40, opacity:0, scale:0.7}}
+                              exit={{opacity:0}}
+                              transition={{duration:1.0, ease:"easeOut"}}
+                              className="absolute w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
+                              style={{left: 28+activeIdx*56+10, backgroundColor: ag.color, color:"#000", zIndex:10}}
+                            >!</motion.div>
+                          );
+                        })()}
+                      </AnimatePresence>
+                      <AnimatePresence>
+                        {showDownPackets && CENTRAL_AGENCY.map((ag, i) => (
+                          <motion.div key={`bc-${i}`}
+                            initial={{top:0, opacity:1, scale:1}}
+                            animate={{top:40, opacity:0, scale:0.7}}
+                            exit={{opacity:0}}
+                            transition={{duration:1.0, ease:"easeIn", delay: i*0.12}}
+                            className="absolute w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
+                            style={{left: 28+i*56+10, backgroundColor: ag.color, color:"#000", zIndex:10}}
+                          >v</motion.div>
+                        ))}
+                      </AnimatePresence>
                     </div>
-                  ))}
+                    {/* Agency cards */}
+                    <div className="flex gap-3 justify-center">
+                      {CENTRAL_AGENCY.map((ag, i) => {
+                        const isActive = i === activeIdx || hubActive;
+                        return (
+                          <motion.div key={ag.id}
+                            animate={{
+                              borderColor: isActive ? ag.color : ag.color+"33",
+                              boxShadow: isActive ? `0 0 10px ${ag.color}33` : "none",
+                              backgroundColor: isActive ? ag.color+"18" : ag.color+"08",
+                            }}
+                            transition={{duration:0.35}}
+                            className="rounded-lg border px-2.5 py-2 text-center"
+                          >
+                            <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
+                            <div className="text-[8px] text-slate-500 mt-0.5">isolated</div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                    <motion.div animate={{opacity: step===0 ? 0 : 1}} transition={{duration:0.3}}
+                      className="text-[9px] text-center"
+                      style={{color: hubActive ? "#22c55e" : CENTRAL_AGENCY[Math.max(0,activeIdx)]?.color ?? "#64748b"}}
+                    >
+                      {hubActive
+                        ? "Central broadcasting published data to all agencies"
+                        : activeIdx >= 0 ? `${CENTRAL_AGENCY[activeIdx].label} notifying Central: ready to publish...` : ""}
+                    </motion.div>
+                    <div className="flex gap-1 justify-center">
+                      {Array.from({length:6}).map((_,i) => (
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step===i ? "w-5 bg-green-500" : "w-1 bg-slate-700"}`}/>
+                      ))}
+                    </div>
+                  </div>
+                  <ul className="space-y-1 shrink-0">
+                    {["Central validates quality before publishing","Agencies are network-isolated from each other","Central enforces consistent metadata schemas","Two flavors: PUSH (agency ETL) and PULL (central ETL)"].map(pt=>(
+                      <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-green-400 shrink-0">·</span>{pt}</li>
+                    ))}
+                  </ul>
                 </div>
-                <div className="text-[9px] text-slate-600 text-center">Agencies cannot access each other directly · Central is the only hub</div>
-              </div>
-              <ul className="space-y-1.5 shrink-0">
-                {["Central validates data quality before publishing","Network-isolated agencies — cross-agency access only via Central","Central enforces consistent metadata schemas","Two flavors: PUSH (agency-driven ETL) and PULL (centrally-driven ETL)"].map(pt=>(
-                  <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-green-400 shrink-0">·</span>{pt}</li>
-                ))}
-              </ul>
-            </div>
+              );
+            })()}
           </motion.div>
         )}
 
