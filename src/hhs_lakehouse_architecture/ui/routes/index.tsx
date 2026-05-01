@@ -4099,13 +4099,8 @@ function Chapter12() {
                 key={hs.id}
                 onClick={() => setSelId(isSel ? null : hs.id)}
                 title={`${node.num}: ${node.label}`}
-                className={`absolute rounded-xl cursor-pointer transition-all duration-200 focus:outline-none ${
-                  isSel
-                    ? `border-2 ring-2 ring-white/30 bg-white/10 backdrop-blur-sm`
-                    : "border-2 border-transparent hover:border-white/50 hover:bg-white/8"
-                }`}
+                className="absolute cursor-pointer focus:outline-none bg-transparent border-0"
                 style={{
-                  borderColor: isSel ? node.border.replace("border-","").replace("/60","").replace("/50","") : undefined,
                   left:   `${hs.cx - hs.w/2}%`,
                   top:    `${hs.cy - hs.h/2}%`,
                   width:  `${hs.w}%`,
