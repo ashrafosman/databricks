@@ -2967,6 +2967,17 @@ function Chapter10() {
   const [selected, setSelected] = useState<NetNodeId>("hub");
   const [panelTab, setPanelTab] = useState<"detail" | "router" | "dns" | "calc">("detail");
   const [showDataFlow, setShowDataFlow] = useState(false);
+  const [dfStep, setDfStep] = useState(-1);
+
+  const DOT_DF_SEQUENCE = [
+    { fx:  48, fy: 250, tx: 165, ty: 110, color: "#f59e0b", dur: 1.0 }, // onprem → dev
+    { fx: 165, fy: 110, tx: 480, ty: 250, color: "#0ea5e9", dur: 0.9 }, // dev → hub
+    { fx: 480, fy: 250, tx: 795, ty: 390, color: "#0ea5e9", dur: 0.9 }, // hub → shared
+    { fx: 795, fy: 390, tx: 480, ty: 250, color: "#8b5cf6", dur: 0.9 }, // shared → hub
+    { fx: 480, fy: 250, tx: 165, ty: 390, color: "#8b5cf6", dur: 0.9 }, // hub → staging
+    { fx: 165, fy: 390, tx: 480, ty: 250, color: "#10b981", dur: 0.9 }, // staging → hub
+    { fx: 480, fy: 250, tx: 795, ty: 110, color: "#10b981", dur: 0.9 }, // hub → prod (stop)
+  ];
   const [calcVpcPrefix, setCalcVpcPrefix] = useState(16);
   const [calcSubnetPrefix, setCalcSubnetPrefix] = useState(21);
   const [calcWorkspaces, setCalcWorkspaces] = useState(4);
@@ -3014,6 +3025,15 @@ function Chapter10() {
       return () => clearTimeout(t);
     }
   }, [phase]);
+
+  // Start/reset data flow dot sequence when the overlay is toggled
+  useEffect(() => {
+    if (showDataFlow) {
+      setDfStep(0);
+    } else {
+      setDfStep(-1);
+    }
+  }, [showDataFlow]);
 
   const nodeMap = Object.fromEntries(NET_NODES.map(n => [n.id, n])) as Record<NetNodeId, NetNode>;
   const sel = nodeMap[selected];
@@ -3469,37 +3489,22 @@ function Chapter10() {
               <rect x="575" y="220" width="72" height="16" rx="3" fill="#001a0a" opacity="0.85" />
               <text x="611" y="231" textAnchor="middle" fontSize="7.5" fill="#10b981" fontWeight="700">4 · Promote → Prod</text>
 
-              {/* Animated data packets — stage 1: onprem → dev */}
-              <circle r="5.5" fill="#f59e0b" opacity="0.95">
-                <animateMotion dur="2.2s" begin="0s" repeatCount="indefinite" path="M 48 250 L 165 110" />
-              </circle>
-              <circle r="3" fill="#fef3c7" opacity="0.7">
-                <animateMotion dur="2.2s" begin="0.4s" repeatCount="indefinite" path="M 48 250 L 165 110" />
-              </circle>
-
-              {/* Stage 2: dev → hub → shared */}
-              <circle r="5.5" fill="#0ea5e9" opacity="0.95">
-                <animateMotion dur="3s" begin="0.7s" repeatCount="indefinite" path="M 165 110 L 480 250 L 795 390" />
-              </circle>
-              <circle r="3" fill="#bae6fd" opacity="0.7">
-                <animateMotion dur="3s" begin="1.1s" repeatCount="indefinite" path="M 165 110 L 480 250 L 795 390" />
-              </circle>
-
-              {/* Stage 3: shared → hub → staging */}
-              <circle r="5.5" fill="#8b5cf6" opacity="0.95">
-                <animateMotion dur="3s" begin="1.4s" repeatCount="indefinite" path="M 795 390 L 480 250 L 165 390" />
-              </circle>
-              <circle r="3" fill="#ddd6fe" opacity="0.7">
-                <animateMotion dur="3s" begin="1.8s" repeatCount="indefinite" path="M 795 390 L 480 250 L 165 390" />
-              </circle>
-
-              {/* Stage 4: staging → hub → prod */}
-              <circle r="5.5" fill="#10b981" opacity="0.95">
-                <animateMotion dur="2.8s" begin="2.1s" repeatCount="indefinite" path="M 165 390 L 480 250 L 795 110" />
-              </circle>
-              <circle r="3" fill="#a7f3d0" opacity="0.7">
-                <animateMotion dur="2.8s" begin="2.5s" repeatCount="indefinite" path="M 165 390 L 480 250 L 795 110" />
-              </circle>
+              {/* Sequential data flow dot */}
+              {dfStep >= 0 && dfStep < DOT_DF_SEQUENCE.length && (() => {
+                const s = DOT_DF_SEQUENCE[dfStep];
+                return (
+                  <motion.circle
+                    key={`df-${dfStep}`}
+                    r={5}
+                    fill={s.color}
+                    cx={s.fx} cy={s.fy}
+                    style={{ filter: `drop-shadow(0 0 5px ${s.color})` }}
+                    animate={{ cx: s.tx, cy: s.ty }}
+                    transition={{ duration: s.dur, ease: "linear" }}
+                    onAnimationComplete={() => setDfStep(prev => prev + 1)}
+                  />
+                );
+              })()}
 
               {/* Banner */}
               <rect x="310" y="6" width="340" height="18" rx="4" fill="#1c1000" opacity="0.9" />
