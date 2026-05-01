@@ -2966,18 +2966,7 @@ function Chapter10() {
   const [phase, setPhase] = useState(0);
   const [selected, setSelected] = useState<NetNodeId>("hub");
   const [panelTab, setPanelTab] = useState<"detail" | "router" | "dns" | "calc">("detail");
-  const [showDataFlow, setShowDataFlow] = useState(false);
-  const [dfStep, setDfStep] = useState(-1);
 
-  const DOT_DF_SEQUENCE = [
-    { fx:  48, fy: 250, tx: 165, ty: 110, color: "#f59e0b", dur: 1.0 }, // onprem → dev
-    { fx: 165, fy: 110, tx: 480, ty: 250, color: "#0ea5e9", dur: 0.9 }, // dev → hub
-    { fx: 480, fy: 250, tx: 795, ty: 390, color: "#0ea5e9", dur: 0.9 }, // hub → shared
-    { fx: 795, fy: 390, tx: 480, ty: 250, color: "#8b5cf6", dur: 0.9 }, // shared → hub
-    { fx: 480, fy: 250, tx: 165, ty: 390, color: "#8b5cf6", dur: 0.9 }, // hub → staging
-    { fx: 165, fy: 390, tx: 480, ty: 250, color: "#10b981", dur: 0.9 }, // staging → hub
-    { fx: 480, fy: 250, tx: 795, ty: 110, color: "#10b981", dur: 0.9 }, // hub → prod (stop)
-  ];
   const [calcVpcPrefix, setCalcVpcPrefix] = useState(16);
   const [calcSubnetPrefix, setCalcSubnetPrefix] = useState(21);
   const [calcWorkspaces, setCalcWorkspaces] = useState(4);
@@ -3026,14 +3015,6 @@ function Chapter10() {
     }
   }, [phase]);
 
-  // Start/reset data flow dot sequence when the overlay is toggled
-  useEffect(() => {
-    if (showDataFlow) {
-      setDfStep(0);
-    } else {
-      setDfStep(-1);
-    }
-  }, [showDataFlow]);
 
   const nodeMap = Object.fromEntries(NET_NODES.map(n => [n.id, n])) as Record<NetNodeId, NetNode>;
   const sel = nodeMap[selected];
@@ -3066,13 +3047,7 @@ function Chapter10() {
           <span className="text-[13px] text-blue-400">Hub-Spoke Topology</span>
         </div>
         <div className="absolute top-3 right-4 z-10 flex items-center gap-2">
-          <button
-            onClick={() => setShowDataFlow(v => !v)}
-            className={`flex items-center gap-1.5 text-[13px] border rounded px-2 py-1 transition-colors ${showDataFlow ? "text-amber-300 border-amber-600 bg-amber-900/30" : "text-slate-400 hover:text-white border-slate-700 hover:border-slate-500"}`}
-          >
-            ▶ Data Flow
-          </button>
-          <button
+<button
             onClick={handleReplay}
             className="flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded px-2 py-1 transition-colors"
           >
@@ -3469,50 +3444,6 @@ function Chapter10() {
               </g>
             );
           })()}
-
-          {/* Data Flow Animation Overlay */}
-          {showDataFlow && (
-            <g>
-              {/* Pipeline path highlights */}
-              <path d="M 48 250 L 165 110" stroke="#f59e0b" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
-              <path d="M 165 110 L 480 250 L 795 390" stroke="#0ea5e9" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
-              <path d="M 795 390 L 480 250 L 165 390" stroke="#8b5cf6" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
-              <path d="M 165 390 L 480 250 L 795 110" stroke="#10b981" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
-
-              {/* Step labels */}
-              <rect x="52" y="163" width="72" height="16" rx="3" fill="#1a0e00" opacity="0.85" />
-              <text x="88" y="174" textAnchor="middle" fontSize="7.5" fill="#f59e0b" fontWeight="700">1 · Raw Ingest → DEV</text>
-              <rect x="260" y="290" width="76" height="16" rx="3" fill="#001220" opacity="0.85" />
-              <text x="298" y="301" textAnchor="middle" fontSize="7.5" fill="#0ea5e9" fontWeight="700">2 · Write Delta Lake</text>
-              <rect x="388" y="415" width="76" height="16" rx="3" fill="#0d0820" opacity="0.85" />
-              <text x="426" y="426" textAnchor="middle" fontSize="7.5" fill="#8b5cf6" fontWeight="700">3 · Staging Validate</text>
-              <rect x="575" y="220" width="72" height="16" rx="3" fill="#001a0a" opacity="0.85" />
-              <text x="611" y="231" textAnchor="middle" fontSize="7.5" fill="#10b981" fontWeight="700">4 · Promote → Prod</text>
-
-              {/* Sequential data flow dot */}
-              {dfStep >= 0 && dfStep < DOT_DF_SEQUENCE.length && (() => {
-                const s = DOT_DF_SEQUENCE[dfStep];
-                return (
-                  <motion.circle
-                    key={`df-${dfStep}`}
-                    r={5}
-                    fill={s.color}
-                    cx={s.fx} cy={s.fy}
-                    style={{ filter: `drop-shadow(0 0 5px ${s.color})` }}
-                    animate={{ cx: s.tx, cy: s.ty }}
-                    transition={{ duration: s.dur, ease: "linear" }}
-                    onAnimationComplete={() => setDfStep(prev => prev + 1)}
-                  />
-                );
-              })()}
-
-              {/* Banner */}
-              <rect x="310" y="6" width="340" height="18" rx="4" fill="#1c1000" opacity="0.9" />
-              <text x="480" y="18" textAnchor="middle" fontSize="8.5" fill="#fbbf24" fontWeight="700" letterSpacing="1">
-                DATA PIPELINE · On-Prem → DEV → Staging → Production
-              </text>
-            </g>
-          )}
 
           {/* Click hint */}
           {phase >= 6 && (
