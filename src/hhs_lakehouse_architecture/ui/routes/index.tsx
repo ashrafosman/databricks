@@ -4596,7 +4596,7 @@ function Chapter14() {
 
       {/* Pattern tabs */}
       <div className="shrink-0 flex gap-2">
-        {([["overview","Overview"],["push","Distributed (Push)"],["pull","Centralized (Pull)"]] as [UCPattern,string][]).map(([p, label]) => (
+        {([["overview","Overview"],["push","PUSH — Agency ETL"],["pull","PULL — Central ETL"]] as [UCPattern,string][]).map(([p, label]) => (
           <button key={p} onClick={() => setPattern(p)}
             className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
               pattern === p ? "bg-purple-600 border-purple-500 text-white" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
@@ -4716,8 +4716,8 @@ function Chapter14() {
               return (
                 <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B — Centralized</span>
-                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">HHS Central governs all published data</h3>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B — Centralized (2 modes: PUSH &amp; PULL)</span>
+                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">HHS Central governs all published data — agency ETL (PUSH) or Central ETL (PULL)</h3>
                   </div>
                   <div className="flex-1 relative flex flex-col items-center gap-3 justify-center" style={{minHeight:200}}>
                     {/* Central hub */}
@@ -4825,8 +4825,8 @@ function Chapter14() {
             {/* Animated diagram */}
             <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Loosely Governed — PUSH</span>
-                <p className="text-slate-400 text-xs mt-0.5">Agency owns and runs the ETL job. It reads its own data and pushes results to the Central container.</p>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">PUSH — Agency-Managed ETL</span>
+                <p className="text-slate-400 text-xs mt-0.5">Agency owns and runs the ETL job. It reads its own data and pushes results into HHS Central's published catalog.</p>
               </div>
 
               {/* Diagram area — matches slide structure */}
@@ -5139,7 +5139,7 @@ function Chapter14() {
             {/* Animated diagram */}
             <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Strictly Governed — PULL</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">PULL — Central-Managed ETL</span>
                 <p className="text-slate-400 text-xs mt-0.5">Agency signals readiness. HHS Central owns and runs the ETL job — validating, transforming, and publishing with full governance.</p>
               </div>
 
