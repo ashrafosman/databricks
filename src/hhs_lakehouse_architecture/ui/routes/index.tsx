@@ -4620,6 +4620,7 @@ function HHSChapters() {
   const [chapter, setChapter] = useState(1);
   const [showIntro, setShowIntro] = useState(true);
   const [transitioning, setTransitioning] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
@@ -4627,6 +4628,7 @@ function HHSChapters() {
     async (n: number) => {
       if (transitioning || n === chapter) return;
       setTransitioning(true);
+      setSidebarOpen(false);
       await sleep(200);
       setChapter(n);
       setShowIntro(true);
@@ -4651,50 +4653,78 @@ function HHSChapters() {
         )}
       </AnimatePresence>
 
-      {/* ── Top bar ── */}
-      <header className="shrink-0 border-b border-border bg-background/95 backdrop-blur px-5 py-2.5 flex items-center gap-4 z-30 overflow-hidden">
-        <div className="flex items-center gap-2">
-          <Server className="w-4 h-4 text-blue-400" />
-          <span className="text-sm font-bold text-foreground">Databricks Lakehouse for State HHS</span>
-          <span className="text-muted-foreground/40 mx-1">·</span>
-          <span className="text-[14px] text-muted-foreground">Architecture Journey</span>
-        </div>
-
-        {/* Chapter navigation */}
-        <div className="ml-auto flex items-center gap-1 overflow-x-auto">
-          {CHAPTERS.map((c) => (
-            <button
-              key={c.n}
-              onClick={() => goToChapter(c.n)}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${chapter === c.n ? "bg-muted text-foreground border border-border" : "text-muted-foreground hover:text-foreground"}`}
+      {/* ── Collapsible sidebar overlay ── */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            {/* backdrop */}
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+            />
+            {/* sidebar panel */}
+            <motion.aside
+              key="sidebar"
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed top-0 left-0 h-full w-[260px] z-50 bg-background border-r border-border flex flex-col overflow-hidden"
             >
-              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold border shrink-0 ${chapter === c.n ? "border-blue-500 bg-blue-600 text-white" : "border-border text-muted-foreground"}`}>
-                {c.n}
-              </span>
-              <span className="hidden lg:block truncate max-w-[80px]">{c.title}</span>
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 items-center">
-          <button
-            onClick={() => goToChapter(Math.max(1, chapter - 1))}
-            disabled={chapter === 1}
-            className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => goToChapter(Math.min(CHAPTERS.length, chapter + 1))}
-            disabled={chapter === CHAPTERS.length}
-            className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
+                <span className="text-[12px] font-bold text-muted-foreground uppercase tracking-widest">Chapters</span>
+                <button onClick={() => setSidebarOpen(false)} className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto py-2">
+                {CHAPTERS.map((c) => (
+                  <button
+                    key={c.n}
+                    onClick={() => goToChapter(c.n)}
+                    className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${chapter === c.n ? "bg-blue-600/15 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}
+                  >
+                    <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border shrink-0 ${chapter === c.n ? "border-blue-500 bg-blue-600 text-white" : "border-border"}`}>
+                      {c.n}
+                    </span>
+                    <span className="text-[12px] leading-snug">{c.title}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Top bar ── */}
+      <header className="shrink-0 border-b border-border bg-background/95 backdrop-blur px-4 py-2.5 flex items-center gap-3 z-30">
+        {/* Hamburger */}
+        <button
+          onClick={() => setSidebarOpen((v) => !v)}
+          className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0"
+          title="All chapters"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
+        <Server className="w-4 h-4 text-blue-400 shrink-0" />
+        <span className="text-sm font-bold text-foreground truncate">Databricks Lakehouse for State HHS</span>
+        <span className="text-muted-foreground/40 hidden md:block">·</span>
+        <span className="text-[13px] text-muted-foreground hidden md:block truncate">{info.title}</span>
+
+        <div className="ml-auto flex gap-1 items-center shrink-0">
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(isDark ? "light" : "dark")}
             title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            className="ml-1 p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
           >
             {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
@@ -4717,29 +4747,36 @@ function HHSChapters() {
         </AnimatePresence>
       </main>
 
-      {/* ── Bottom progress bar ── */}
-      <div className="shrink-0 border-t border-border bg-background px-5 py-2 flex items-center gap-3">
-        <div className="flex gap-1.5">
+      {/* ── Bottom nav: progress dots + prev/next arrows ── */}
+      <div className="shrink-0 border-t border-border bg-background px-5 py-2 flex items-center justify-between gap-3">
+        {/* Prev */}
+        <button
+          onClick={() => goToChapter(Math.max(1, chapter - 1))}
+          disabled={chapter === 1}
+          className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {/* Progress dots */}
+        <div className="flex gap-1.5 items-center">
           {CHAPTERS.map((c) => (
             <button
               key={c.n}
               onClick={() => goToChapter(c.n)}
-              className={`h-1 rounded-full transition-all ${chapter === c.n ? "w-8 bg-blue-500" : "w-3 bg-muted hover:bg-muted-foreground/30"}`}
+              className={`h-1.5 rounded-full transition-all ${chapter === c.n ? "w-6 bg-blue-500" : "w-1.5 bg-muted hover:bg-muted-foreground/40"}`}
             />
           ))}
         </div>
-        <span className="text-[14px] text-muted-foreground">
-          Chapter {chapter} / {CHAPTERS.length} — {info.title}
-        </span>
-        {chapter < CHAPTERS.length && (
-          <button
-            onClick={() => goToChapter(chapter + 1)}
-            className="ml-auto flex items-center gap-1.5 text-[15px] text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Next: {CHAPTERS[chapter].title}
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        )}
+
+        {/* Next */}
+        <button
+          onClick={() => goToChapter(Math.min(CHAPTERS.length, chapter + 1))}
+          disabled={chapter === CHAPTERS.length}
+          className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
