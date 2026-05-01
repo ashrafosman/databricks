@@ -2965,6 +2965,8 @@ const NET_EDGES: {
 function Chapter10() {
   const [phase, setPhase] = useState(0);
   const [selected, setSelected] = useState<NetNodeId>("hub");
+  const [panelTab, setPanelTab] = useState<"detail" | "router" | "dns">("detail");
+  const [showDataFlow, setShowDataFlow] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -3008,12 +3010,20 @@ function Chapter10() {
           <span className="text-[13px] text-slate-600">·</span>
           <span className="text-[13px] text-blue-400">Hub-Spoke Topology</span>
         </div>
-        <button
-          onClick={handleReplay}
-          className="absolute top-3 right-4 z-10 flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded px-2 py-1 transition-colors"
-        >
-          <RefreshCw className="w-2.5 h-2.5" /> Replay
-        </button>
+        <div className="absolute top-3 right-4 z-10 flex items-center gap-2">
+          <button
+            onClick={() => setShowDataFlow(v => !v)}
+            className={`flex items-center gap-1.5 text-[13px] border rounded px-2 py-1 transition-colors ${showDataFlow ? "text-amber-300 border-amber-600 bg-amber-900/30" : "text-slate-400 hover:text-white border-slate-700 hover:border-slate-500"}`}
+          >
+            ▶ Data Flow
+          </button>
+          <button
+            onClick={handleReplay}
+            className="flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded px-2 py-1 transition-colors"
+          >
+            <RefreshCw className="w-2.5 h-2.5" /> Replay
+          </button>
+        </div>
 
         <svg
           viewBox="0 0 960 500"
@@ -3197,6 +3207,65 @@ function Chapter10() {
             );
           })}
 
+          {/* Data Flow Animation Overlay */}
+          {showDataFlow && (
+            <g>
+              {/* Pipeline path highlights */}
+              <path d="M 48 250 L 165 110" stroke="#f59e0b" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
+              <path d="M 165 110 L 480 250 L 795 390" stroke="#0ea5e9" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
+              <path d="M 795 390 L 480 250 L 165 390" stroke="#8b5cf6" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
+              <path d="M 165 390 L 480 250 L 795 110" stroke="#10b981" strokeWidth="2.5" fill="none" opacity="0.45" strokeDasharray="8,5" />
+
+              {/* Step labels */}
+              <rect x="52" y="163" width="72" height="16" rx="3" fill="#1a0e00" opacity="0.85" />
+              <text x="88" y="174" textAnchor="middle" fontSize="7.5" fill="#f59e0b" fontWeight="700">1 · Raw Ingest → DEV</text>
+              <rect x="260" y="290" width="76" height="16" rx="3" fill="#001220" opacity="0.85" />
+              <text x="298" y="301" textAnchor="middle" fontSize="7.5" fill="#0ea5e9" fontWeight="700">2 · Write Delta Lake</text>
+              <rect x="388" y="415" width="76" height="16" rx="3" fill="#0d0820" opacity="0.85" />
+              <text x="426" y="426" textAnchor="middle" fontSize="7.5" fill="#8b5cf6" fontWeight="700">3 · Staging Validate</text>
+              <rect x="575" y="220" width="72" height="16" rx="3" fill="#001a0a" opacity="0.85" />
+              <text x="611" y="231" textAnchor="middle" fontSize="7.5" fill="#10b981" fontWeight="700">4 · Promote → Prod</text>
+
+              {/* Animated data packets — stage 1: onprem → dev */}
+              <circle r="5.5" fill="#f59e0b" opacity="0.95">
+                <animateMotion dur="2.2s" begin="0s" repeatCount="indefinite" path="M 48 250 L 165 110" />
+              </circle>
+              <circle r="3" fill="#fef3c7" opacity="0.7">
+                <animateMotion dur="2.2s" begin="0.4s" repeatCount="indefinite" path="M 48 250 L 165 110" />
+              </circle>
+
+              {/* Stage 2: dev → hub → shared */}
+              <circle r="5.5" fill="#0ea5e9" opacity="0.95">
+                <animateMotion dur="3s" begin="0.7s" repeatCount="indefinite" path="M 165 110 L 480 250 L 795 390" />
+              </circle>
+              <circle r="3" fill="#bae6fd" opacity="0.7">
+                <animateMotion dur="3s" begin="1.1s" repeatCount="indefinite" path="M 165 110 L 480 250 L 795 390" />
+              </circle>
+
+              {/* Stage 3: shared → hub → staging */}
+              <circle r="5.5" fill="#8b5cf6" opacity="0.95">
+                <animateMotion dur="3s" begin="1.4s" repeatCount="indefinite" path="M 795 390 L 480 250 L 165 390" />
+              </circle>
+              <circle r="3" fill="#ddd6fe" opacity="0.7">
+                <animateMotion dur="3s" begin="1.8s" repeatCount="indefinite" path="M 795 390 L 480 250 L 165 390" />
+              </circle>
+
+              {/* Stage 4: staging → hub → prod */}
+              <circle r="5.5" fill="#10b981" opacity="0.95">
+                <animateMotion dur="2.8s" begin="2.1s" repeatCount="indefinite" path="M 165 390 L 480 250 L 795 110" />
+              </circle>
+              <circle r="3" fill="#a7f3d0" opacity="0.7">
+                <animateMotion dur="2.8s" begin="2.5s" repeatCount="indefinite" path="M 165 390 L 480 250 L 795 110" />
+              </circle>
+
+              {/* Banner */}
+              <rect x="310" y="6" width="340" height="18" rx="4" fill="#1c1000" opacity="0.9" />
+              <text x="480" y="18" textAnchor="middle" fontSize="8.5" fill="#fbbf24" fontWeight="700" letterSpacing="1">
+                DATA PIPELINE · On-Prem → DEV → Staging → Production
+              </text>
+            </g>
+          )}
+
           {/* Click hint */}
           {phase >= 6 && (
             <motion.text
@@ -3211,66 +3280,197 @@ function Chapter10() {
 
       {/* Detail panel */}
       <div className="w-[280px] flex flex-col gap-3 overflow-y-auto shrink-0">
-        {/* Legend */}
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-2 shrink-0">
-          <p className="text-[13px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Connection Types</p>
-          {[
-            { label: "VPC Peering / TGW", style: "solid" as const, color: "#3b82f6" },
-            { label: "VPN / ExpressRoute", style: "dashed" as const, color: "#64748b" },
-            { label: "Private Link (SaaS)", style: "dotted" as const, color: "#6366f1" },
-          ].map(l => (
-            <div key={l.label} className="flex items-center gap-2">
-              <svg width="26" height="8" className="shrink-0">
-                <line x1="0" y1="4" x2="26" y2="4" stroke={l.color} strokeWidth="1.5"
-                  strokeDasharray={l.style === "dashed" ? "5,3" : l.style === "dotted" ? "2,4" : undefined} />
-              </svg>
-              <span className="text-[13px] text-slate-400">{l.label}</span>
-            </div>
+        {/* Tab bar */}
+        <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-1 flex gap-1 shrink-0">
+          {(["detail", "router", "dns"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setPanelTab(tab)}
+              className={`flex-1 text-[12px] font-semibold py-1 rounded-lg transition-colors ${panelTab === tab ? "bg-blue-900/50 text-blue-300 border border-blue-700/60" : "text-slate-500 hover:text-slate-300"}`}
+            >
+              {tab === "detail" ? "Node Details" : tab === "router" ? "Router" : "Private DNS"}
+            </button>
           ))}
         </div>
 
-        {/* Selected node detail */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={selected}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-3 overflow-y-auto"
-          >
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sel.stroke }} />
-                <p className="text-sm font-bold text-white">{sel.label}</p>
-                {sel.isExternal && <span className="text-[12px] text-slate-500 border border-slate-700 rounded px-1">external</span>}
-              </div>
-              <p className="text-[13px] text-slate-500 pl-4">{sel.sublabel}</p>
-            </div>
-
-            <p className="text-[13px] text-slate-400 leading-relaxed">{sel.details.description}</p>
-
-            <div className="space-y-1.5">
-              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Configuration</p>
-              {sel.details.items.map((item, i) => (
-                <div key={i} className="flex justify-between items-start gap-3">
-                  <span className="text-[13px] text-slate-500 shrink-0">{item.label}</span>
-                  <span className="text-[13px] text-slate-300 text-right leading-relaxed">{item.value}</span>
+        {panelTab === "detail" && (
+          <>
+            {/* Legend */}
+            <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-2 shrink-0">
+              <p className="text-[13px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Connection Types</p>
+              {[
+                { label: "VPC Peering / TGW", style: "solid" as const, color: "#3b82f6" },
+                { label: "VPN / ExpressRoute", style: "dashed" as const, color: "#64748b" },
+                { label: "Private Link (SaaS)", style: "dotted" as const, color: "#6366f1" },
+              ].map(l => (
+                <div key={l.label} className="flex items-center gap-2">
+                  <svg width="26" height="8" className="shrink-0">
+                    <line x1="0" y1="4" x2="26" y2="4" stroke={l.color} strokeWidth="1.5"
+                      strokeDasharray={l.style === "dashed" ? "5,3" : l.style === "dotted" ? "2,4" : undefined} />
+                  </svg>
+                  <span className="text-[13px] text-slate-400">{l.label}</span>
                 </div>
               ))}
             </div>
 
+            {/* Selected node detail */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selected}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-3 overflow-y-auto"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: sel.stroke }} />
+                    <p className="text-sm font-bold text-white">{sel.label}</p>
+                    {sel.isExternal && <span className="text-[12px] text-slate-500 border border-slate-700 rounded px-1">external</span>}
+                  </div>
+                  <p className="text-[13px] text-slate-500 pl-4">{sel.sublabel}</p>
+                </div>
+
+                <p className="text-[13px] text-slate-400 leading-relaxed">{sel.details.description}</p>
+
+                <div className="space-y-1.5">
+                  <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Configuration</p>
+                  {sel.details.items.map((item, i) => (
+                    <div key={i} className="flex justify-between items-start gap-3">
+                      <span className="text-[13px] text-slate-500 shrink-0">{item.label}</span>
+                      <span className="text-[13px] text-slate-300 text-right leading-relaxed">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Recommendations</p>
+                  {sel.details.recs.map((rec, i) => (
+                    <div key={i} className="flex items-start gap-1.5">
+                      <CheckCircle className="w-2.5 h-2.5 text-emerald-500 shrink-0 mt-0.5" />
+                      <span className="text-[13px] text-slate-400 leading-relaxed">{rec}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </>
+        )}
+
+        {panelTab === "router" && (
+          <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-4 overflow-y-auto">
+            <div>
+              <p className="text-sm font-bold text-white mb-0.5">Router Settings</p>
+              <p className="text-[13px] text-slate-500">Transit Gateway / VNet Peering route configuration for Hub-Spoke topology.</p>
+            </div>
             <div className="space-y-1.5">
-              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Recommendations</p>
-              {sel.details.recs.map((rec, i) => (
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Route Tables</p>
+              {[
+                { label: "Hub Route Table", value: "Summarized 10.0.0.0/8 → TGW" },
+                { label: "Dev Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
+                { label: "Staging Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
+                { label: "Prod Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
+                { label: "Shared Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
+                { label: "Black-Hole Route", value: "RFC1918 → Drop (no spoke-to-spoke)" },
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between items-start gap-2">
+                  <span className="text-[13px] text-slate-500 shrink-0">{row.label}</span>
+                  <span className="text-[13px] text-slate-300 text-right font-mono text-[11px] leading-relaxed">{row.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">BGP Settings</p>
+              {[
+                { label: "ASN (Hub)", value: "64512 (private)" },
+                { label: "ASN (On-Prem)", value: "65000" },
+                { label: "Keepalive", value: "10s / Hold: 30s" },
+                { label: "Route Propagation", value: "Enabled on all TGW attachments" },
+                { label: "Communities", value: "65000:100 (on-prem prefixes)" },
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between items-start gap-2">
+                  <span className="text-[13px] text-slate-500 shrink-0">{row.label}</span>
+                  <span className="text-[13px] text-slate-300 text-right font-mono text-[11px]">{row.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Firewall Rules</p>
+              {[
+                { from: "Dev", to: "Shared", port: "443 HTTPS", color: "#0ea5e9" },
+                { from: "Staging", to: "Shared", port: "443 HTTPS", color: "#f59e0b" },
+                { from: "Prod", to: "Shared", port: "443 HTTPS", color: "#10b981" },
+                { from: "Any Spoke", to: "Internet", port: "DENY (Hub NAT only)", color: "#ef4444" },
+                { from: "Spoke", to: "Spoke", port: "DENY (no lateral)", color: "#ef4444" },
+              ].map((row, i) => (
+                <div key={i} className="flex items-center gap-2 text-[12px]">
+                  <span className="shrink-0 font-mono px-1 rounded" style={{ color: row.color, background: row.color + "22" }}>{row.from}</span>
+                  <span className="text-slate-600">→</span>
+                  <span className="shrink-0 text-slate-400">{row.to}</span>
+                  <span className="text-slate-600 ml-auto text-right shrink-0">{row.port}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {panelTab === "dns" && (
+          <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-4 overflow-y-auto">
+            <div>
+              <p className="text-sm font-bold text-white mb-0.5">Private DNS Settings</p>
+              <p className="text-[13px] text-slate-500">Centralized DNS in Hub resolves all private endpoints — spokes forward all DNS to Hub resolvers.</p>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Resolver Endpoints</p>
+              {[
+                { label: "Inbound Resolver", value: "10.0.1.10 / 10.0.1.11" },
+                { label: "Outbound Forwarder", value: "10.0.1.20 (→ on-prem DNS)" },
+                { label: "Spoke DNS Server", value: "10.0.1.10 (points to Hub)" },
+                { label: "On-Prem Fwd Target", value: "10.0.1.20 for *.internal" },
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between items-start gap-2">
+                  <span className="text-[13px] text-slate-500 shrink-0">{row.label}</span>
+                  <span className="text-[13px] text-slate-300 font-mono text-[11px] text-right">{row.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Private DNS Zones</p>
+              {[
+                { zone: "*.azuredatabricks.net", ip: "10.0.2.x", note: "Databricks CP Private Link" },
+                { zone: "*.dfs.core.windows.net", ip: "10.4.1.x", note: "ADLS Gen2 private endpoint" },
+                { zone: "*.blob.core.windows.net", ip: "10.4.2.x", note: "Blob storage endpoint" },
+                { zone: "*.vault.azure.net", ip: "10.4.3.x", note: "Key Vault private endpoint" },
+                { zone: "*.azurecr.io", ip: "10.4.4.x", note: "Container Registry PE" },
+                { zone: "hhs.internal", ip: "10.0.1.20 →", note: "Forwarded to on-prem" },
+              ].map((row, i) => (
+                <div key={i} className="space-y-0.5 border-b border-slate-800/50 pb-1.5 last:border-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-mono text-blue-400">{row.zone}</span>
+                    <span className="text-[11px] font-mono text-slate-400">{row.ip}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600">{row.note}</p>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">DNS Security</p>
+              {[
+                "DNSSEC validation enabled on Hub resolver",
+                "Block public DNS from spokes — Hub-only egress",
+                "DNS query logging → Log Analytics / CloudWatch",
+                "Deny wildcard * PTR from spoke subnets",
+                "Alert on DNS exfiltration patterns (long labels)",
+              ].map((rec, i) => (
                 <div key={i} className="flex items-start gap-1.5">
                   <CheckCircle className="w-2.5 h-2.5 text-emerald-500 shrink-0 mt-0.5" />
                   <span className="text-[13px] text-slate-400 leading-relaxed">{rec}</span>
                 </div>
               ))}
             </div>
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        )}
       </div>
     </div>
   );
