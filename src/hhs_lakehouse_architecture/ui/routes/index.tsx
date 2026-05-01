@@ -4819,8 +4819,9 @@ function Chapter14() {
         {/* ── PUSH ──────────────────────────────────────────── */}
         {pattern === "push" && (
           <motion.div key="push" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
-            className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0"
+            className="flex-1 flex flex-col gap-4 overflow-y-auto"
           >
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 shrink-0">
             {/* Animated diagram */}
             <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
               <div>
@@ -4997,14 +4998,144 @@ function Chapter14() {
                 <p className="text-xs text-slate-500">Agencies with mature data engineering teams. Federal programs with established data stewardship (e.g. CMS Medicaid, CDC surveillance systems).</p>
               </div>
             </div>
+            </div>
+            {/* ── Metadata Management — Option 1 (PUSH) ── */}
+            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4 shrink-0">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Option 1 — Metadata Management (PUSH)</span>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  Each agency owns its own catalogs. Agencies receive{" "}
+                  <code className="text-blue-300 bg-slate-800 px-1 rounded text-[9px]">USE CATALOG + CREATE SCHEMA</code>{" "}
+                  on the shared central catalog to publish their data products there.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                {/* Hierarchy */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">UC Catalog Hierarchy</div>
+                  <div className="text-[9px] text-slate-600 font-mono mb-1 flex gap-4">
+                    <span className="text-slate-500">catalog</span>
+                    <span>→ schema</span>
+                    <span>→ asset</span>
+                  </div>
+
+                  {/* HHS Central group */}
+                  {[
+                    { cat:"hhs_dev", env:"dev" }, { cat:"hhs_stg", env:"stg" }, { cat:"hhs_prd", env:"prd" },
+                  ].map(row => (
+                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
+                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-green-700/50 bg-green-900/15 ${row.env==="prd"?"border-green-600":""}`}>
+                        <span className="text-[9px] text-green-300 font-mono">{row.cat}</span>
+                        <span className="text-[8px] text-slate-600">HHS</span>
+                      </div>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-green-400 font-mono">central_schemas</span>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-slate-800 my-1"/>
+
+                  {/* CMS group */}
+                  {[
+                    { cat:"cms_dev", env:"dev" }, { cat:"cms_stg", env:"stg" }, { cat:"cms_prd", env:"prd" },
+                  ].map(row => (
+                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
+                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-blue-700/50 bg-blue-900/15 ${row.env==="prd"?"border-blue-600":""}`}>
+                        <span className="text-[9px] text-blue-300 font-mono">{row.cat}</span>
+                        <span className="text-[8px] text-slate-600">CMS</span>
+                      </div>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-blue-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-slate-800 my-1"/>
+
+                  {/* CDC group */}
+                  {[
+                    { cat:"cdc_dev", env:"dev" }, { cat:"cdc_stg", env:"stg" }, { cat:"cdc_prd", env:"prd" },
+                  ].map(row => (
+                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
+                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-emerald-700/50 bg-emerald-900/15 ${row.env==="prd"?"border-emerald-600":""}`}>
+                        <span className="text-[9px] text-emerald-300 font-mono">{row.cat}</span>
+                        <span className="text-[8px] text-slate-600">CDC</span>
+                      </div>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-emerald-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                    </div>
+                  ))}
+                  <div className="mt-2 flex gap-4 text-[9px] text-slate-500">
+                    <span><span className="text-slate-400">_prd</span>=prod</span>
+                    <span><span className="text-slate-400">_stg</span>=staging</span>
+                    <span><span className="text-slate-400">_dev</span>=dev</span>
+                  </div>
+                </div>
+
+                {/* Permissions Matrix */}
+                <div className="flex flex-col gap-2">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Permission Matrix</div>
+                  <table className="w-full text-[9px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-700">
+                        <th className="text-left text-slate-500 font-mono py-1 pr-2">Catalog</th>
+                        <th className="text-center text-slate-500 py-1 px-1 w-14">Owner</th>
+                        <th className="text-center text-green-400 py-1 px-1 w-10">HHS</th>
+                        <th className="text-center text-blue-400 py-1 px-1 w-10">CMS</th>
+                        <th className="text-center text-emerald-400 py-1 px-1 w-10">CDC</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50">
+                      {([
+                        { cat:"hhs_dev",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",     cdc:"—"     },
+                        { cat:"hhs_stg",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",     cdc:"—"     },
+                        { cat:"hhs_prd",  owner:"HHS", oc:"#22c55e", hhs:"own", cms:"UC",    cdc:"UC",   highlight:true },
+                        { cat:"cms_dev",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",   cdc:"—"     },
+                        { cat:"cms_stg",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",   cdc:"—"     },
+                        { cat:"cms_prd",  owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"UC+CS", cdc:"—",    highlight:true },
+                        { cat:"cdc_dev",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"own"   },
+                        { cat:"cdc_stg",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"own"   },
+                        { cat:"cdc_prd",  owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",     cdc:"UC+CS", highlight:true },
+                      ] as {cat:string;owner:string;oc:string;hhs:string;cms:string;cdc:string;highlight?:boolean}[]).map(row => {
+                        const cell = (v: string, col: string) => v === "own"
+                          ? <span className="text-slate-500 text-[8px]">own</span>
+                          : v === "—" ? <span className="text-slate-700">—</span>
+                          : <span className="font-bold text-[8px]" style={{color:col}}>{v}</span>;
+                        return (
+                          <tr key={row.cat} className={row.highlight ? "bg-slate-800/40" : ""}>
+                            <td className="py-0.5 pr-2 font-mono" style={{color:row.oc+"bb"}}>{row.cat}</td>
+                            <td className="text-center py-0.5 px-1 font-bold text-[8px]" style={{color:row.oc}}>{row.owner}</td>
+                            <td className="text-center py-0.5 px-1">{cell(row.hhs,"#22c55e")}</td>
+                            <td className="text-center py-0.5 px-1">{cell(row.cms,"#3b82f6")}</td>
+                            <td className="text-center py-0.5 px-1">{cell(row.cdc,"#10b981")}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div className="mt-1 flex flex-wrap gap-3 text-[8px] text-slate-500 border-t border-slate-800 pt-2">
+                    <span><span className="font-bold text-slate-300">UC</span>=USE CATALOG</span>
+                    <span><span className="font-bold text-slate-300">CS</span>=CREATE SCHEMA</span>
+                    <span className="text-slate-600">* Also grant USE SCHEMA + SELECT at table level</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
           </motion.div>
         )}
 
         {/* ── PULL ──────────────────────────────────────────── */}
         {pattern === "pull" && (
           <motion.div key="pull" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
-            className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0"
+            className="flex-1 flex flex-col gap-4 overflow-y-auto"
           >
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 shrink-0">
             {/* Animated diagram */}
             <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
               <div>
@@ -5191,6 +5322,140 @@ function Chapter14() {
                 <p className="text-xs text-slate-500">Agencies without strong data engineering teams. HIPAA/FISMA compliance requires central governance. Central team enforces consistent data standards across all agencies.</p>
               </div>
             </div>
+            </div>
+            {/* ── Metadata Management — Option 2 (PULL) ── */}
+            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4 shrink-0">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Option 2 — Metadata Management (PULL)</span>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  Central owns <code className="text-green-300 bg-slate-800 px-1 rounded text-[9px]">cms_published</code> and{" "}
+                  <code className="text-green-300 bg-slate-800 px-1 rounded text-[9px]">cdc_published</code> with Central schemas.
+                  Agencies keep their own workspace catalogs and get{" "}
+                  <code className="text-green-300 bg-slate-800 px-1 rounded text-[9px]">USE CATALOG</code> to read published data.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                {/* Hierarchy */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">UC Catalog Hierarchy</div>
+                  <div className="text-[9px] text-slate-600 font-mono mb-1 flex gap-4">
+                    <span className="text-slate-500">catalog</span>
+                    <span>→ schema</span>
+                    <span>→ asset</span>
+                  </div>
+
+                  {/* HHS Central group — includes published catalogs */}
+                  {[
+                    { cat:"hhs_dev", badge:false }, { cat:"hhs_stg", badge:false }, { cat:"hhs_prd", badge:false },
+                    { cat:"cms_published", badge:true }, { cat:"cdc_published", badge:true },
+                  ].map(row => (
+                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
+                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border ${row.badge ? "border-green-500 bg-green-900/30" : "border-green-700/50 bg-green-900/15"}`}>
+                        <span className="text-[9px] text-green-300 font-mono">{row.cat}</span>
+                        {row.badge && <span className="text-[7px] text-green-500 bg-green-900 rounded px-1">CENTRAL</span>}
+                      </div>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-green-400 font-mono">central_schemas</span>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-slate-800 my-1"/>
+
+                  {[
+                    { cat:"cms_dev", env:"dev", color:"blue" }, { cat:"cms_stg", env:"stg", color:"blue" }, { cat:"cms_prd", env:"prd", color:"blue" },
+                  ].map(row => (
+                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
+                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-blue-700/50 bg-blue-900/15 ${row.env==="prd"?"border-blue-600":""}`}>
+                        <span className="text-[9px] text-blue-300 font-mono">{row.cat}</span>
+                        <span className="text-[8px] text-slate-600">CMS</span>
+                      </div>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-blue-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-slate-800 my-1"/>
+
+                  {[
+                    { cat:"cdc_dev", env:"dev" }, { cat:"cdc_stg", env:"stg" }, { cat:"cdc_prd", env:"prd" },
+                  ].map(row => (
+                    <div key={row.cat} className="flex items-center gap-1.5 flex-wrap">
+                      <div className={`flex items-center gap-1 rounded px-2 py-0.5 border border-emerald-700/50 bg-emerald-900/15 ${row.env==="prd"?"border-emerald-600":""}`}>
+                        <span className="text-[9px] text-emerald-300 font-mono">{row.cat}</span>
+                        <span className="text-[8px] text-slate-600">CDC</span>
+                      </div>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-emerald-400 font-mono">agency_schemas</span>
+                      <span className="text-slate-700 text-[9px]">→</span>
+                      <span className="text-[8px] text-slate-500">table/view/model</span>
+                    </div>
+                  ))}
+                  <div className="mt-2 flex gap-4 text-[9px] text-slate-500">
+                    <span><span className="text-slate-400">_prd</span>=prod</span>
+                    <span><span className="text-slate-400">_stg</span>=staging</span>
+                    <span><span className="text-slate-400">_dev</span>=dev</span>
+                  </div>
+                </div>
+
+                {/* Permissions Matrix */}
+                <div className="flex flex-col gap-2">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Permission Matrix</div>
+                  <table className="w-full text-[9px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-700">
+                        <th className="text-left text-slate-500 font-mono py-1 pr-2">Catalog</th>
+                        <th className="text-center text-slate-500 py-1 px-1 w-14">Owner</th>
+                        <th className="text-center text-green-400 py-1 px-1 w-10">HHS</th>
+                        <th className="text-center text-blue-400 py-1 px-1 w-10">CMS</th>
+                        <th className="text-center text-emerald-400 py-1 px-1 w-10">CDC</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50">
+                      {([
+                        { cat:"hhs_dev",       owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",  cdc:"—"  },
+                        { cat:"hhs_stg",       owner:"HHS", oc:"#22c55e", hhs:"own", cms:"—",  cdc:"—"  },
+                        { cat:"hhs_prd",       owner:"HHS", oc:"#22c55e", hhs:"own", cms:"UC", cdc:"UC", highlight:true },
+                        { cat:"cms_published", owner:"HHS", oc:"#22c55e", hhs:"own", cms:"UC", cdc:"UC", pub:true },
+                        { cat:"cdc_published", owner:"HHS", oc:"#22c55e", hhs:"own", cms:"UC", cdc:"UC", pub:true },
+                        { cat:"cms_dev",       owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",cdc:"—"  },
+                        { cat:"cms_stg",       owner:"CMS", oc:"#3b82f6", hhs:"—",   cms:"own",cdc:"—"  },
+                        { cat:"cms_prd",       owner:"CMS", oc:"#3b82f6", hhs:"UC",  cms:"own",cdc:"—",  highlight:true },
+                        { cat:"cdc_dev",       owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",  cdc:"own" },
+                        { cat:"cdc_stg",       owner:"CDC", oc:"#10b981", hhs:"—",   cms:"—",  cdc:"own" },
+                        { cat:"cdc_prd",       owner:"CDC", oc:"#10b981", hhs:"UC",  cms:"—",  cdc:"own", highlight:true },
+                      ] as {cat:string;owner:string;oc:string;hhs:string;cms:string;cdc:string;highlight?:boolean;pub?:boolean}[]).map(row => {
+                        const cell = (v: string, col: string) => v === "own"
+                          ? <span className="text-slate-500 text-[8px]">own</span>
+                          : v === "—" ? <span className="text-slate-700">—</span>
+                          : <span className="font-bold text-[8px]" style={{color:col}}>{v}</span>;
+                        return (
+                          <tr key={row.cat} className={row.pub ? "bg-green-900/15" : row.highlight ? "bg-slate-800/40" : ""}>
+                            <td className="py-0.5 pr-2 font-mono" style={{color:row.oc+"bb"}}>
+                              {row.cat}
+                              {row.pub && <span className="ml-1 text-[7px] text-green-500 bg-green-900/50 rounded px-1">central</span>}
+                            </td>
+                            <td className="text-center py-0.5 px-1 font-bold text-[8px]" style={{color:row.oc}}>{row.owner}</td>
+                            <td className="text-center py-0.5 px-1">{cell(row.hhs,"#22c55e")}</td>
+                            <td className="text-center py-0.5 px-1">{cell(row.cms,"#3b82f6")}</td>
+                            <td className="text-center py-0.5 px-1">{cell(row.cdc,"#10b981")}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div className="mt-1 flex flex-wrap gap-3 text-[8px] text-slate-500 border-t border-slate-800 pt-2">
+                    <span><span className="font-bold text-slate-300">UC</span>=USE CATALOG</span>
+                    <span className="text-slate-600">* Also grant USE SCHEMA + SELECT at table level</span>
+                    <span className="text-green-600">cms/cdc_published owned entirely by HHS Central</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
           </motion.div>
         )}
 
