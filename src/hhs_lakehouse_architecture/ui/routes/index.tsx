@@ -4550,359 +4550,528 @@ function Chapter13() {
 
 type UCPattern = "overview" | "push" | "pull";
 
-const UC_AGENCIES = [
-  { id: "cms",  label: "CMS",  color: "#3b82f6" },
-  { id: "cdc",  label: "CDC",  color: "#10b981" },
-  { id: "fda",  label: "FDA",  color: "#f59e0b" },
-  { id: "acf",  label: "ACF",  color: "#8b5cf6" },
-];
 
 function Chapter14() {
   const [pattern, setPattern] = useState<UCPattern>("overview");
+  const [step, setStep] = useState(0);
+
+  // Cycle animation steps 0-5 every 1.4s
+  useEffect(() => {
+    const id = setInterval(() => setStep((s) => (s + 1) % 6), 1400);
+    return () => clearInterval(id);
+  }, [pattern]);
+
+  // Reset step when pattern changes
+  useEffect(() => setStep(0), [pattern]);
+
+  const isPush = pattern === "push";
+  const isPull = pattern === "pull";
+
+  // PUSH steps: 1=agency glows, 2=read packet, 3=job active, 4=write packet, 5=central glows
+  // PULL steps: 1=notify packet, 2=central validates, 3=job active+read, 4=write packet, 5=central glows
+  const agencyActive  = step === 1 || (isPush && step === 2) || (isPull && step === 1);
+  const jobActive     = step === 3;
+  const centralActive = step === 2 && isPull ? true : step === 5;
+  const showReadPacket  = isPush ? step === 2 : step === 3;
+  const showWritePacket = step === 4;
+  const showNotifyPacket = isPull && step === 1;
+
+  const CENTRAL_AGENCY = [
+    { id: "cms", label: "CMS", color: "#3b82f6" },
+    { id: "cdc", label: "CDC", color: "#10b981" },
+    { id: "fda", label: "FDA", color: "#f59e0b" },
+    { id: "acf", label: "ACF", color: "#8b5cf6" },
+  ];
 
   return (
-    <div className="h-full flex flex-col gap-4 overflow-y-auto">
+    <div className="h-full flex flex-col gap-3 overflow-y-auto">
       {/* Header */}
       <div className="shrink-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Addendum A</span>
-        </div>
-        <h2 className="text-xl font-bold text-slate-100">Unity Catalog — Multi-Agency Architecture</h2>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-purple-400">Addendum A</span>
+        <h2 className="text-xl font-bold text-slate-100 mt-0.5">Unity Catalog — Multi-Agency Architecture</h2>
         <p className="text-slate-400 text-sm mt-1">
-          How HHS component agencies share data through Unity Catalog. Two publishing models — Distributed and Centralized — each with different governance tradeoffs.
+          How HHS component agencies share data through Unity Catalog. Two publishing models with different governance tradeoffs.
         </p>
       </div>
 
-      {/* Pattern selector */}
+      {/* Pattern tabs */}
       <div className="shrink-0 flex gap-2">
-        {(["overview", "push", "pull"] as UCPattern[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => setPattern(p)}
+        {([["overview","Overview"],["push","Distributed (Push)"],["pull","Centralized (Pull)"]] as [UCPattern,string][]).map(([p, label]) => (
+          <button key={p} onClick={() => setPattern(p)}
             className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
-              pattern === p
-                ? "bg-purple-600 border-purple-500 text-white"
-                : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+              pattern === p ? "bg-purple-600 border-purple-500 text-white" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
             }`}
-          >
-            {p === "overview" ? "Overview" : p === "push" ? "Distributed (Push)" : "Centralized (Pull)"}
-          </button>
+          >{label}</button>
         ))}
       </div>
 
       <AnimatePresence mode="wait">
+
+        {/* ── OVERVIEW ───────────────────────────────────────── */}
         {pattern === "overview" && (
-          <motion.div
-            key="overview"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
+          <motion.div key="overview" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
             className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0"
           >
-            {/* Distributed panel */}
+            {/* Distributed */}
             <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Pattern A</span>
-                <h3 className="text-base font-bold text-slate-100 mt-0.5">Federated / Distributed</h3>
-                <p className="text-slate-400 text-xs mt-1">Each agency publishes data products it owns. Unity Catalog federates discovery and access.</p>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Pattern A — Distributed</span>
+                <h3 className="text-sm font-bold text-slate-100 mt-0.5">Federated: Each agency owns &amp; publishes its catalog</h3>
               </div>
-              {/* Diagram */}
-              <div className="flex-1 flex flex-col items-center gap-3">
-                {/* Central UC metastore */}
-                <div className="bg-purple-900/40 border border-purple-700 rounded-lg px-4 py-2 text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-purple-300">HHS Unity Catalog Metastore</div>
-                  <div className="text-xs text-purple-400 mt-0.5">Shared discovery · Federated ACLs</div>
+              {/* Mini diagram */}
+              <div className="flex-1 flex flex-col items-center gap-3 justify-center min-h-[180px]">
+                {/* UC Metastore at top */}
+                <div className="w-full max-w-xs bg-purple-900/30 border border-purple-600 rounded-lg px-3 py-2 text-center">
+                  <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">HHS Unity Catalog Metastore</div>
+                  <div className="text-[9px] text-purple-400 mt-0.5">Shared discovery · Federated ACLs · Central platform ops</div>
                 </div>
-                {/* Arrows down */}
-                <div className="flex gap-6 items-start w-full justify-center">
-                  {UC_AGENCIES.map((ag) => (
-                    <div key={ag.id} className="flex flex-col items-center gap-1.5">
-                      <svg width="2" height="20" viewBox="0 0 2 20"><line x1="1" y1="0" x2="1" y2="16" stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2" /><polygon points="1,20 -2,14 4,14" fill={ag.color} /></svg>
-                      <div
-                        className="rounded-lg border px-3 py-2 text-center min-w-[56px]"
-                        style={{ borderColor: ag.color + "55", backgroundColor: ag.color + "15" }}
-                      >
-                        <div className="text-[11px] font-bold" style={{ color: ag.color }}>{ag.label}</div>
-                        <div className="text-[9px] text-slate-500 mt-0.5">Workspace</div>
-                      </div>
-                      <div className="text-[9px] text-slate-500 text-center">owns &amp;</div>
-                      <div className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-center">
-                        <div className="text-[9px] text-slate-300">catalog</div>
-                        <div className="text-[9px] text-slate-500">{ag.id}_prd</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <ul className="space-y-1.5 shrink-0">
-                {[
-                  "Each agency controls its own catalog and data quality",
-                  "Central team provides platform ops, secure blueprints, network security",
-                  "No centralized data transformation — agencies publish directly",
-                  "Best when agencies have strong data engineering maturity",
-                ].map((pt) => (
-                  <li key={pt} className="flex gap-2 text-xs text-slate-400">
-                    <span className="text-blue-400 shrink-0 mt-0.5">·</span>
-                    {pt}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Centralized panel */}
-            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B</span>
-                <h3 className="text-base font-bold text-slate-100 mt-0.5">Centralized Hub</h3>
-                <p className="text-slate-400 text-xs mt-1">HHS Central acts as a data hub. Agencies are isolated from each other by network and UC policies.</p>
-              </div>
-              {/* Diagram */}
-              <div className="flex-1 flex flex-col items-center gap-2">
-                {/* HHS Central */}
-                <div className="bg-green-900/30 border border-green-700 rounded-lg px-6 py-3 text-center w-full max-w-[240px]">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-green-300">HHS Central</div>
-                  <div className="text-[9px] text-green-500 mt-0.5">Central catalog · Quality assurance · ACLs</div>
-                </div>
-                {/* Bi-directional arrows */}
-                <div className="flex gap-6 items-start justify-center w-full">
-                  {UC_AGENCIES.map((ag) => (
+                {/* Dashed arrows down + agencies */}
+                <div className="flex gap-3 justify-center">
+                  {CENTRAL_AGENCY.map((ag) => (
                     <div key={ag.id} className="flex flex-col items-center gap-1">
-                      <svg width="16" height="32" viewBox="0 0 16 32">
-                        <line x1="8" y1="0" x2="8" y2="32" stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2" />
-                        <polygon points="8,0 4,8 12,8" fill={ag.color} />
-                        <polygon points="8,32 4,24 12,24" fill={ag.color} />
+                      <svg width="2" height="18" viewBox="0 0 2 18">
+                        <line x1="1" y1="0" x2="1" y2="14" stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2"/>
+                        <polygon points="1,18 -2,12 4,12" fill={ag.color}/>
                       </svg>
-                      <div
-                        className="rounded-lg border px-2 py-1.5 text-center"
-                        style={{ borderColor: ag.color + "55", backgroundColor: ag.color + "15" }}
-                      >
-                        <div className="text-[11px] font-bold" style={{ color: ag.color }}>{ag.label}</div>
-                        <div className="text-[9px] text-slate-500">isolated</div>
+                      <div className="rounded-lg border px-2.5 py-2 text-center" style={{borderColor:ag.color+"55",backgroundColor:ag.color+"18"}}>
+                        <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
+                        <div className="text-[8px] text-slate-500 mt-0.5">owns catalog</div>
+                        <div className="text-[8px] text-slate-600">{ag.id}_prd</div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="text-[9px] text-slate-600 text-center mt-1">Agencies cannot directly access each other's data</div>
+                <div className="text-[9px] text-slate-600 text-center">Each agency publishes its own data products · No central transformation</div>
               </div>
               <ul className="space-y-1.5 shrink-0">
-                {[
-                  "Central team validates data quality before publishing",
-                  "Agencies are network-isolated — cross-agency access only via Central",
-                  "Central applies consistent metadata schemas and governance policies",
-                  "Two flavors: PUSH (agency-driven) and PULL (centrally-driven)",
-                ].map((pt) => (
-                  <li key={pt} className="flex gap-2 text-xs text-slate-400">
-                    <span className="text-green-400 shrink-0 mt-0.5">·</span>
-                    {pt}
-                  </li>
+                {["Agency controls its own catalog, data quality, and ACLs","Central team provides platform ops and secure blueprints","Best for agencies with strong data engineering maturity","Cross-agency access via UC grants — no isolation enforcement"].map(pt=>(
+                  <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-blue-400 shrink-0">·</span>{pt}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Centralized */}
+            <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B — Centralized</span>
+                <h3 className="text-sm font-bold text-slate-100 mt-0.5">Hub: HHS Central governs all published data</h3>
+              </div>
+              <div className="flex-1 flex flex-col items-center gap-3 justify-center min-h-[180px]">
+                {/* Central hub */}
+                <div className="w-full max-w-xs bg-green-900/25 border border-green-600 rounded-lg px-3 py-2.5 text-center">
+                  <div className="text-[10px] font-bold text-green-300 uppercase tracking-wider">HHS Central</div>
+                  <div className="text-[9px] text-green-500 mt-0.5">Central catalog · Quality assurance · Metadata standards · ACLs</div>
+                </div>
+                {/* Bi-directional arrows + isolated agencies */}
+                <div className="flex gap-3 justify-center">
+                  {CENTRAL_AGENCY.map((ag) => (
+                    <div key={ag.id} className="flex flex-col items-center gap-1">
+                      <svg width="14" height="28" viewBox="0 0 14 28">
+                        <line x1="7" y1="0" x2="7" y2="28" stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2"/>
+                        <polygon points="7,0 3,8 11,8" fill={ag.color}/>
+                        <polygon points="7,28 3,20 11,20" fill={ag.color}/>
+                      </svg>
+                      <div className="rounded-lg border px-2.5 py-2 text-center" style={{borderColor:ag.color+"55",backgroundColor:ag.color+"18"}}>
+                        <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
+                        <div className="text-[8px] text-slate-500 mt-0.5">isolated</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[9px] text-slate-600 text-center">Agencies cannot access each other directly · Central is the only hub</div>
+              </div>
+              <ul className="space-y-1.5 shrink-0">
+                {["Central validates data quality before publishing","Network-isolated agencies — cross-agency access only via Central","Central enforces consistent metadata schemas","Two flavors: PUSH (agency-driven ETL) and PULL (centrally-driven ETL)"].map(pt=>(
+                  <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-green-400 shrink-0">·</span>{pt}</li>
                 ))}
               </ul>
             </div>
           </motion.div>
         )}
 
+        {/* ── PUSH ──────────────────────────────────────────── */}
         {pattern === "push" && (
-          <motion.div
-            key="push"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1 flex flex-col gap-4 min-h-0"
+          <motion.div key="push" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
+            className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0"
           >
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 flex-1">
-              {/* Diagram */}
-              <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Loosely Governed</span>
-                  <h3 className="text-base font-bold text-slate-100 mt-0.5">Distributed (Push) Pattern</h3>
-                  <p className="text-slate-400 text-xs mt-1">Agency reads its own source data and writes transformed results to the Central container. Agency defines ACLs on its published table.</p>
-                </div>
-                {/* Flow diagram */}
-                <div className="flex-1 flex flex-col justify-center gap-3">
-                  {/* Agency workspace */}
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 flex-1">
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-blue-300 mb-2">CMS Agency Workspace (cms_prd)</div>
-                      <div className="flex gap-2">
-                        <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-center">
-                          <div className="text-[9px] text-slate-400">schema Y</div>
-                          <div className="text-[9px] text-blue-300">source data</div>
-                        </div>
-                        <div className="flex items-center text-slate-500">→</div>
-                        <div className="bg-blue-800/30 border border-blue-600 rounded px-2 py-1 text-center">
-                          <div className="text-[9px] text-blue-400">ETL Job</div>
-                          <div className="text-[9px] text-slate-400">transforms</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Arrow down to central */}
-                  <div className="flex items-center gap-2 px-4">
-                    <div className="flex-1 border-t border-dashed border-slate-600" />
-                    <span className="text-[9px] text-slate-500 shrink-0">PUSH: writes result + sets ACLs</span>
-                    <div className="flex-1 border-t border-dashed border-slate-600" />
-                  </div>
-
-                  {/* Central container */}
-                  <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-green-300 mb-2">HHS Central Container</div>
-                    <div className="flex gap-3 items-start">
-                      <div className="bg-slate-800 border border-green-700/50 rounded px-2 py-1 text-center">
-                        <div className="text-[9px] text-green-300">cms_published</div>
-                        <div className="text-[9px] text-slate-400">tableP</div>
-                        <div className="text-[9px] text-slate-500">result data</div>
-                      </div>
-                      <div className="flex-1 text-[9px] text-slate-500 pt-1">
-                        ACLs set by agency · Central team monitors quality &amp; freshness · Other agencies consume via UC grants
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Other agencies consuming */}
-                  <div className="flex gap-2 px-2">
-                    {UC_AGENCIES.filter(a => a.id !== "cms").map((ag) => (
-                      <div key={ag.id} className="flex flex-col items-center gap-1">
-                        <svg width="2" height="16" viewBox="0 0 2 16"><line x1="1" y1="0" x2="1" y2="12" stroke={ag.color} strokeWidth="1.5" strokeDasharray="2 2" /><polygon points="1,16 -2,10 4,10" fill={ag.color} /></svg>
-                        <div className="rounded border px-2 py-0.5 text-center" style={{ borderColor: ag.color + "55", backgroundColor: ag.color + "15" }}>
-                          <div className="text-[9px] font-bold" style={{ color: ag.color }}>{ag.label}</div>
-                          <div className="text-[9px] text-slate-500">reads</div>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="text-[9px] text-slate-500 self-end ml-2">consume published tables</div>
-                  </div>
-                </div>
+            {/* Animated diagram */}
+            <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Loosely Governed — PUSH</span>
+                <p className="text-slate-400 text-xs mt-0.5">Agency owns and runs the ETL job. It reads its own data and pushes results to the Central container.</p>
               </div>
 
-              {/* Steps sidebar */}
-              <div className="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
-                <h4 className="text-sm font-bold text-slate-200">Agency Steps</h4>
-                {[
-                  { n: 1, text: "Agency ETL job reads source data from its own workspace container" },
-                  { n: 2, text: "Job writes transformed result to the Central container (in agency's allocated folder)" },
-                  { n: 3, text: "Job creates or updates schema in the Central UC publishing catalog" },
-                  { n: 4, text: "Agency configures ACLs on the newly created tables" },
-                  { n: 5, text: "Agency sets up recurring job (batch or streaming) to keep data fresh" },
-                ].map((step) => (
-                  <div key={step.n} className="flex gap-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5">{step.n}</div>
-                    <p className="text-xs text-slate-400 leading-relaxed">{step.text}</p>
+              {/* Diagram area — matches slide structure */}
+              <div className="flex-1 relative min-h-[300px]" style={{minHeight:300}}>
+
+                {/* Central Container (top) */}
+                <motion.div animate={{borderColor: centralActive ? "#22c55e" : "#334155", boxShadow: centralActive ? "0 0 16px #22c55e44" : "none"}}
+                  transition={{duration:0.4}}
+                  className="absolute left-0 right-0 top-0 rounded-lg border-2 p-3"
+                  style={{height:120, background:"#0f2718"}}
+                >
+                  <div className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-2">Central Container — HHS Central</div>
+                  <div className="flex gap-3 items-start">
+                    {/* catalog box */}
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-green-300 font-mono">cms_published</div>
+                      <div className="text-[8px] text-slate-500">catalog</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-slate-300 font-mono">schema X</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    {/* tableP — lights up on centralActive */}
+                    <motion.div animate={{borderColor: centralActive ? "#22c55e88" : "#334155", backgroundColor: centralActive ? "#14532d44" : "#1e293b"}}
+                      transition={{duration:0.4}}
+                      className="border rounded px-2 py-1.5"
+                    >
+                      <div className="text-[8px] text-green-300 font-mono">tableP</div>
+                      <div className="text-[8px] text-slate-500">result data</div>
+                    </motion.div>
                   </div>
-                ))}
-                <div className="mt-2 bg-blue-900/20 border border-blue-800 rounded-lg p-3">
-                  <div className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1">Central Team Role</div>
-                  <p className="text-xs text-slate-400">Provides publishing infrastructure, monitors data quality and freshness, validates network security. Does not own data transformation.</p>
+                  {/* metadata/ACLs badge */}
+                  <motion.div animate={{opacity: step === 5 ? 1 : 0, y: step === 5 ? 0 : 4}}
+                    transition={{duration:0.4}}
+                    className="absolute bottom-2 right-3 bg-blue-900/60 border border-blue-600 rounded px-2 py-0.5"
+                  >
+                    <span className="text-[8px] text-blue-300 font-bold">metadata + ACLs set by CMS</span>
+                  </motion.div>
+                </motion.div>
+
+                {/* Vertical connector + labels (middle zone) */}
+                <div className="absolute left-0 right-0" style={{top:122, height:56}}>
+                  {/* write result data label + arrow up */}
+                  <div className="absolute left-[45%] top-0 flex flex-col items-center gap-0.5">
+                    <svg width="2" height="20" viewBox="0 0 2 20">
+                      <line x1="1" y1="20" x2="1" y2="4" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="3 2"/>
+                      <polygon points="1,0 -2,6 4,6" fill="#22c55e"/>
+                    </svg>
+                    <span className="text-[8px] text-green-600 whitespace-nowrap">write result data</span>
+                  </div>
+                  {/* Job node */}
+                  <motion.div
+                    animate={{
+                      borderColor: jobActive ? "#3b82f6" : "#334155",
+                      boxShadow: jobActive ? "0 0 14px #3b82f644" : "none",
+                      backgroundColor: jobActive ? "#1e3a5f" : "#1e293b",
+                    }}
+                    transition={{duration:0.4}}
+                    className="absolute border rounded-lg px-3 py-1.5 text-center"
+                    style={{right:16, top:8}}
+                  >
+                    <div className="text-[9px] font-bold text-blue-300">ETL Job</div>
+                    <div className="text-[8px] text-slate-500">owned by CMS</div>
+                  </motion.div>
+                  {/* read source data label + arrow down */}
+                  <div className="absolute left-[45%] bottom-0 flex flex-col items-center gap-0.5">
+                    <span className="text-[8px] text-amber-600 whitespace-nowrap">read source data</span>
+                    <svg width="2" height="20" viewBox="0 0 2 20">
+                      <line x1="1" y1="0" x2="1" y2="16" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 2"/>
+                      <polygon points="1,20 -2,14 4,14" fill="#f59e0b"/>
+                    </svg>
+                  </div>
                 </div>
+
+                {/* Agency Workspace (bottom) */}
+                <motion.div
+                  animate={{borderColor: agencyActive ? "#3b82f6" : "#334155", boxShadow: agencyActive ? "0 0 16px #3b82f644" : "none"}}
+                  transition={{duration:0.4}}
+                  className="absolute left-0 right-0 rounded-lg border-2 p-3"
+                  style={{top:178, height:120, background:"#0c1a2e"}}
+                >
+                  <div className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-2">CMS Agency Workspace — cms_prd</div>
+                  <div className="flex gap-3 items-start">
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-blue-300 font-mono">cms_prd</div>
+                      <div className="text-[8px] text-slate-500">catalog</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-slate-300 font-mono">schema Y</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    {/* source data — lights up on agencyActive */}
+                    <motion.div animate={{borderColor: agencyActive ? "#3b82f688" : "#334155", backgroundColor: agencyActive ? "#1e3a5f44" : "#1e293b"}}
+                      transition={{duration:0.4}}
+                      className="border rounded px-2 py-1.5"
+                    >
+                      <div className="text-[8px] text-blue-300 font-mono">data A, B…</div>
+                      <div className="text-[8px] text-slate-500">source tables</div>
+                    </motion.div>
+                  </div>
+                  <div className="mt-2 text-[8px] text-slate-600">CMS runs its own ETL job → pushes to Central → sets ACLs on published tables</div>
+                </motion.div>
+
+                {/* Animated read packet (amber, moves up from agency to job area) */}
+                <AnimatePresence>
+                  {showReadPacket && (
+                    <motion.div key="read-pkt" initial={{bottom:178,left:"47%",opacity:0,scale:0.5}}
+                      animate={{bottom:230,left:"47%",opacity:1,scale:1}}
+                      exit={{opacity:0,scale:0}}
+                      transition={{duration:0.9,ease:"easeInOut"}}
+                      className="absolute w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center"
+                      style={{zIndex:10}}
+                    >
+                      <span className="text-[6px] text-black font-bold">↑</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Animated write packet (green, moves up from job area to central) */}
+                <AnimatePresence>
+                  {showWritePacket && (
+                    <motion.div key="write-pkt" initial={{bottom:230,left:"44%",opacity:0,scale:0.5}}
+                      animate={{bottom:280,left:"44%",opacity:1,scale:1}}
+                      exit={{opacity:0,scale:0}}
+                      transition={{duration:0.9,ease:"easeInOut"}}
+                      className="absolute w-4 h-4 rounded-full bg-green-400 flex items-center justify-center"
+                      style={{zIndex:10}}
+                    >
+                      <span className="text-[6px] text-black font-bold">↑</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+              </div>
+
+              {/* Step indicator */}
+              <div className="flex gap-1.5 justify-center shrink-0">
+                {["Idle","Source data","Read→Job","Processing","Write→Central","Published"].map((label,i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all ${step===i?"w-8 bg-blue-500":"w-1.5 bg-slate-700"}`} title={label}/>
+                ))}
+              </div>
+            </div>
+
+            {/* Steps sidebar */}
+            <div className="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+              <h4 className="text-sm font-bold text-slate-200">CMS Agency Steps (PUSH)</h4>
+              {[
+                {n:1, active: step===1, color:"#3b82f6", text:"Source data lives in CMS workspace (cms_prd catalog, schema Y)"},
+                {n:2, active: step===2, color:"#f59e0b", text:"Agency ETL job reads source data from its own container"},
+                {n:3, active: step===3, color:"#3b82f6", text:"Job transforms data — agency controls all transformation logic"},
+                {n:4, active: step===4, color:"#22c55e", text:"Job writes result to Central container (cms_published catalog, schema X, tableP)"},
+                {n:5, active: step===5, color:"#22c55e", text:"Agency sets metadata and ACLs on published tables — Central monitors quality"},
+              ].map(s => (
+                <motion.div key={s.n} animate={{opacity: s.active ? 1 : 0.5}} className="flex gap-3">
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5 transition-colors"
+                    style={{backgroundColor: s.active ? s.color : "#334155"}}
+                  >{s.n}</div>
+                  <p className="text-xs text-slate-400 leading-relaxed">{s.text}</p>
+                </motion.div>
+              ))}
+              <div className="mt-2 bg-blue-900/20 border border-blue-800 rounded-lg p-3">
+                <div className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1">Central Team Role</div>
+                <p className="text-xs text-slate-400">Provides publishing infrastructure and network security. Monitors data freshness. Does NOT own or run the ETL — that stays with the agency.</p>
+              </div>
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1">When to Use</div>
+                <p className="text-xs text-slate-500">Agencies with mature data engineering teams. Federal programs with established data stewardship (e.g. CMS Medicaid, CDC surveillance systems).</p>
               </div>
             </div>
           </motion.div>
         )}
 
+        {/* ── PULL ──────────────────────────────────────────── */}
         {pattern === "pull" && (
-          <motion.div
-            key="pull"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1 flex flex-col gap-4 min-h-0"
+          <motion.div key="pull" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
+            className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0"
           >
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 flex-1">
-              {/* Diagram */}
-              <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-4">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Strictly Governed</span>
-                  <h3 className="text-base font-bold text-slate-100 mt-0.5">Centralized (Pull) Pattern</h3>
-                  <p className="text-slate-400 text-xs mt-1">Agency signals readiness. HHS Central validates compliance, runs the ETL, and publishes — full control over quality and metadata standards.</p>
-                </div>
-                <div className="flex-1 flex flex-col justify-center gap-3">
-                  {/* Agency workspace */}
-                  <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-blue-300 mb-2">CMS Agency Workspace (cms_prd)</div>
-                    <div className="flex gap-2 items-center">
-                      <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-center">
-                        <div className="text-[9px] text-slate-400">schema Y</div>
-                        <div className="text-[9px] text-blue-300">source tables</div>
-                      </div>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <div className="text-[9px] text-slate-500">notifies →</div>
-                        <svg width="24" height="2"><line x1="0" y1="1" x2="24" y2="1" stroke="#64748b" strokeWidth="1.5" strokeDasharray="3 2" /></svg>
-                      </div>
-                      <div className="bg-purple-900/30 border border-purple-600 rounded px-2 py-1 text-center">
-                        <div className="text-[9px] text-purple-300">Signal</div>
-                        <div className="text-[9px] text-slate-400">"ready to publish"</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Central validates and runs */}
-                  <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-green-300 mb-2">HHS Central</div>
-                    <div className="flex gap-2 flex-wrap">
-                      {[
-                        { label: "Validate Quality", color: "#10b981" },
-                        { label: "Check Compliance", color: "#10b981" },
-                        { label: "Run ETL Job", color: "#6366f1" },
-                        { label: "Set ACLs", color: "#6366f1" },
-                      ].map((step) => (
-                        <div key={step.label} className="rounded border border-slate-700 bg-slate-800 px-2 py-0.5">
-                          <div className="text-[9px]" style={{ color: step.color }}>{step.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Arrow down */}
-                  <div className="flex items-center gap-2 px-4">
-                    <div className="flex-1 border-t border-dashed border-green-700/40" />
-                    <span className="text-[9px] text-green-600 shrink-0">PULL: Central reads source, transforms, publishes</span>
-                    <div className="flex-1 border-t border-dashed border-green-700/40" />
-                  </div>
-
-                  {/* Central container result */}
-                  <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">Central Publishing Catalog</div>
-                    <div className="flex gap-2 items-center">
-                      <div className="bg-green-900/20 border border-green-700 rounded px-2 py-1 text-center">
-                        <div className="text-[9px] text-green-300">cms_published</div>
-                        <div className="text-[9px] text-slate-400">tableP — centrally curated</div>
-                      </div>
-                      <div className="text-[9px] text-slate-500 flex-1">Metadata, lineage, and ACLs all managed by Central</div>
-                    </div>
-                  </div>
-                </div>
+            {/* Animated diagram */}
+            <div className="lg:col-span-3 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Strictly Governed — PULL</span>
+                <p className="text-slate-400 text-xs mt-0.5">Agency signals readiness. HHS Central owns and runs the ETL job — validating, transforming, and publishing with full governance.</p>
               </div>
 
-              {/* Steps sidebar */}
-              <div className="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
-                <h4 className="text-sm font-bold text-slate-200">Central Team Steps</h4>
-                {[
-                  { n: 1, text: "Agency notifies Central that a dataset is ready for publishing" },
-                  { n: 2, text: "Central validates data quality and checks metadata compliance with defined standards" },
-                  { n: 3, text: "Central runs ETL job — reads from agency's container, transforms, stores in Central" },
-                  { n: 4, text: "Job creates schema in the central UC publishing catalog and sets ACLs" },
-                  { n: 5, text: "Central maintains recurring job to keep published data up to date" },
-                ].map((step) => (
-                  <div key={step.n} className="flex gap-3">
-                    <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5">{step.n}</div>
-                    <p className="text-xs text-slate-400 leading-relaxed">{step.text}</p>
+              <div className="flex-1 relative min-h-[300px]" style={{minHeight:300}}>
+
+                {/* Central Container (top) */}
+                <motion.div animate={{borderColor: centralActive ? "#22c55e" : "#334155", boxShadow: centralActive ? "0 0 16px #22c55e44" : "none"}}
+                  transition={{duration:0.4}}
+                  className="absolute left-0 right-0 top-0 rounded-lg border-2 p-3"
+                  style={{height:130, background:"#0f2718"}}
+                >
+                  <div className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-2">HHS Central — Governance Hub</div>
+                  <div className="flex gap-2 items-start flex-wrap">
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-green-300 font-mono">cms_published</div>
+                      <div className="text-[8px] text-slate-500">catalog</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-slate-300 font-mono">schema X</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    <motion.div animate={{borderColor: centralActive ? "#22c55e88" : "#334155", backgroundColor: centralActive ? "#14532d44" : "#1e293b"}}
+                      transition={{duration:0.4}}
+                      className="border rounded px-2 py-1.5"
+                    >
+                      <div className="text-[8px] text-green-300 font-mono">tableP</div>
+                      <div className="text-[8px] text-slate-500">curated result</div>
+                    </motion.div>
+                    {/* Central ETL Job — inside central (owned by central) */}
+                    <motion.div animate={{borderColor: jobActive ? "#22c55e" : "#334155", boxShadow: jobActive ? "0 0 10px #22c55e55" : "none", backgroundColor: jobActive ? "#14532d" : "#1e293b"}}
+                      transition={{duration:0.4}}
+                      className="border rounded-lg px-3 py-1.5 ml-2"
+                    >
+                      <div className="text-[9px] font-bold text-green-300">ETL Job</div>
+                      <div className="text-[8px] text-slate-500">owned by Central</div>
+                    </motion.div>
                   </div>
-                ))}
-                <div className="mt-2 bg-green-900/20 border border-green-800 rounded-lg p-3">
-                  <div className="text-[10px] font-bold text-green-300 uppercase tracking-widest mb-1">When to Use</div>
-                  <p className="text-xs text-slate-400">Best when agencies lack data engineering maturity, when strict HIPAA/FISMA compliance is required across all published datasets, or when Central needs to enforce consistent data standards across all agencies.</p>
+                  <motion.div animate={{opacity: step === 2 ? 1 : 0}} transition={{duration:0.4}}
+                    className="absolute bottom-2 right-3 bg-green-900/60 border border-green-600 rounded px-2 py-0.5"
+                  >
+                    <span className="text-[8px] text-green-300 font-bold">validating quality &amp; compliance…</span>
+                  </motion.div>
+                  <motion.div animate={{opacity: step === 5 ? 1 : 0}} transition={{duration:0.4}}
+                    className="absolute bottom-2 right-3 bg-purple-900/60 border border-purple-600 rounded px-2 py-0.5"
+                  >
+                    <span className="text-[8px] text-purple-300 font-bold">metadata + ACLs set by Central</span>
+                  </motion.div>
+                </motion.div>
+
+                {/* Middle connector zone */}
+                <div className="absolute left-0 right-0" style={{top:132, height:46}}>
+                  <div className="absolute left-[45%] top-0 flex flex-col items-center gap-0.5">
+                    <svg width="2" height="18" viewBox="0 0 2 18">
+                      <line x1="1" y1="18" x2="1" y2="4" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="3 2"/>
+                      <polygon points="1,0 -2,6 4,6" fill="#22c55e"/>
+                    </svg>
+                    <span className="text-[8px] text-green-600 whitespace-nowrap">write result data</span>
+                  </div>
+                  <div className="absolute left-[45%] bottom-0 flex flex-col items-center gap-0.5">
+                    <span className="text-[8px] text-amber-600 whitespace-nowrap">read source data</span>
+                    <svg width="2" height="18" viewBox="0 0 2 18">
+                      <line x1="1" y1="0" x2="1" y2="14" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 2"/>
+                      <polygon points="1,18 -2,12 4,12" fill="#f59e0b"/>
+                    </svg>
+                  </div>
                 </div>
+
+                {/* Agency Workspace (bottom) */}
+                <motion.div animate={{borderColor: agencyActive ? "#3b82f6" : "#334155", boxShadow: agencyActive ? "0 0 16px #3b82f644" : "none"}}
+                  transition={{duration:0.4}}
+                  className="absolute left-0 right-0 rounded-lg border-2 p-3"
+                  style={{top:178, height:120, background:"#0c1a2e"}}
+                >
+                  <div className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-2">CMS Agency Workspace — cms_prd</div>
+                  <div className="flex gap-3 items-start">
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-blue-300 font-mono">cms_prd</div>
+                      <div className="text-[8px] text-slate-500">catalog</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1.5">
+                      <div className="text-[8px] text-slate-300 font-mono">schema Y</div>
+                    </div>
+                    <div className="text-slate-600 text-xs mt-1">→</div>
+                    <motion.div animate={{borderColor: agencyActive ? "#3b82f688" : "#334155", backgroundColor: agencyActive ? "#1e3a5f44" : "#1e293b"}}
+                      transition={{duration:0.4}}
+                      className="border rounded px-2 py-1.5"
+                    >
+                      <div className="text-[8px] text-blue-300 font-mono">data A, B…</div>
+                      <div className="text-[8px] text-slate-500">source tables</div>
+                    </motion.div>
+                  </div>
+                  {/* Notification bubble — visible at step 1 */}
+                  <motion.div animate={{opacity: step === 1 ? 1 : 0, x: step === 1 ? 0 : -8}} transition={{duration:0.4}}
+                    className="mt-2 flex items-center gap-2 bg-purple-900/30 border border-purple-700 rounded px-2 py-1 w-fit"
+                  >
+                    <span className="text-[8px] text-purple-300">📢 Notifying Central: ready to publish</span>
+                  </motion.div>
+                </motion.div>
+
+                {/* Notify packet (purple, moves from agency up to central) */}
+                <AnimatePresence>
+                  {showNotifyPacket && (
+                    <motion.div key="notify-pkt" initial={{bottom:200,left:"30%",opacity:0,scale:0.5}}
+                      animate={{bottom:280,left:"30%",opacity:1,scale:1}}
+                      exit={{opacity:0,scale:0}}
+                      transition={{duration:0.9,ease:"easeInOut"}}
+                      className="absolute w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center"
+                      style={{zIndex:10}}
+                    >
+                      <span className="text-[7px] text-white">📢</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Read packet */}
+                <AnimatePresence>
+                  {showReadPacket && (
+                    <motion.div key="read-pkt2" initial={{bottom:178,left:"47%",opacity:0,scale:0.5}}
+                      animate={{bottom:230,left:"47%",opacity:1,scale:1}}
+                      exit={{opacity:0,scale:0}}
+                      transition={{duration:0.9,ease:"easeInOut"}}
+                      className="absolute w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center"
+                      style={{zIndex:10}}
+                    >
+                      <span className="text-[6px] text-black font-bold">↑</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Write packet */}
+                <AnimatePresence>
+                  {showWritePacket && (
+                    <motion.div key="write-pkt2" initial={{bottom:230,left:"44%",opacity:0,scale:0.5}}
+                      animate={{bottom:280,left:"44%",opacity:1,scale:1}}
+                      exit={{opacity:0,scale:0}}
+                      transition={{duration:0.9,ease:"easeInOut"}}
+                      className="absolute w-4 h-4 rounded-full bg-green-400 flex items-center justify-center"
+                      style={{zIndex:10}}
+                    >
+                      <span className="text-[6px] text-black font-bold">↑</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+              </div>
+
+              {/* Step indicator */}
+              <div className="flex gap-1.5 justify-center shrink-0">
+                {["Idle","Agency notifies","Central validates","Central reads","Write→Central","Published"].map((label,i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all ${step===i?"w-8 bg-green-500":"w-1.5 bg-slate-700"}`} title={label}/>
+                ))}
+              </div>
+            </div>
+
+            {/* Steps sidebar */}
+            <div className="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
+              <h4 className="text-sm font-bold text-slate-200">Central Team Steps (PULL)</h4>
+              {[
+                {n:1, active: step===1, color:"#8b5cf6", text:"Agency notifies Central that dataset is ready for publishing"},
+                {n:2, active: step===2, color:"#22c55e", text:"Central validates data quality and checks metadata compliance"},
+                {n:3, active: step===3, color:"#f59e0b", text:"Central ETL job reads source data from agency's container"},
+                {n:4, active: step===4, color:"#22c55e", text:"Job transforms data, writes result to Central container"},
+                {n:5, active: step===5, color:"#22c55e", text:"Central sets standardized metadata and ACLs on all published tables"},
+              ].map(s => (
+                <motion.div key={s.n} animate={{opacity: s.active ? 1 : 0.5}} className="flex gap-3">
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 mt-0.5 transition-colors"
+                    style={{backgroundColor: s.active ? s.color : "#334155"}}
+                  >{s.n}</div>
+                  <p className="text-xs text-slate-400 leading-relaxed">{s.text}</p>
+                </motion.div>
+              ))}
+              <div className="mt-2 bg-green-900/20 border border-green-800 rounded-lg p-3">
+                <div className="text-[10px] font-bold text-green-300 uppercase tracking-widest mb-1">Central Team Controls</div>
+                <p className="text-xs text-slate-400">ETL logic, data quality validation, metadata schemas, and ACLs. Agency only provides source data and signals readiness.</p>
+              </div>
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-1">When to Use</div>
+                <p className="text-xs text-slate-500">Agencies without strong data engineering teams. HIPAA/FISMA compliance requires central governance. Central team enforces consistent data standards across all agencies.</p>
               </div>
             </div>
           </motion.div>
         )}
+
       </AnimatePresence>
     </div>
   );
 }
+
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
