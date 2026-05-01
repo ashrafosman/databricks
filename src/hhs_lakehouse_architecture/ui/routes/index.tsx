@@ -4612,94 +4612,108 @@ function Chapter14() {
           <motion.div key="overview" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.3}}
             className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0"
           >
-            {/* ── Distributed panel ── */}
+
+            {/* ── Distributed panel — peer mesh ── */}
             {(() => {
-              const activeIdx  = step >= 1 && step <= 4 ? step - 1 : -1;
-              const hubActive  = step === 5;
-              const showPacket = step >= 1 && step <= 4;
+              const PEERS = [
+                {id:"hhs", label:"HHS", color:"#22c55e", cx:100, cy:22},
+                {id:"cms", label:"CMS", color:"#3b82f6", cx:20,  cy:85},
+                {id:"cdc", label:"CDC", color:"#10b981", cx:180, cy:85},
+                {id:"fda", label:"FDA", color:"#f59e0b", cx:48,  cy:158},
+                {id:"acf", label:"ACF", color:"#8b5cf6", cx:152, cy:158},
+              ];
+              const MESH_EDGES: [number,number][] = [[0,1],[0,2],[1,2],[1,3],[2,4],[3,4],[0,3],[0,4]];
+              // each step animates a different consume pair
+              const STEP_PAIRS: [number,number][] = [[-1,-1],[0,1],[1,2],[2,4],[3,4],[0,4]];
+              const sp = STEP_PAIRS[step] ?? [-1,-1];
+              const [sa, sb] = sp;
+              const pairActive = sa >= 0 && sb >= 0;
+              const allActive  = step === 5;
               return (
                 <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Pattern A — Distributed</span>
-                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">Each agency owns &amp; publishes its own catalog</h3>
+                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">Each agency owns &amp; publishes its own catalog — peers consume directly</h3>
                   </div>
-                  <div className="flex-1 relative flex flex-col items-center gap-3 justify-center" style={{minHeight:200}}>
-                    {/* UC Metastore hub */}
-                    <motion.div
-                      animate={{
-                        borderColor: hubActive ? "#a855f7" : "#6d28d9",
-                        boxShadow: hubActive ? "0 0 20px #a855f755" : "0 0 0px transparent",
-                        backgroundColor: hubActive ? "#2e1065" : "#1a0533",
-                      }}
-                      transition={{duration:0.5}}
-                      className="w-full max-w-[280px] rounded-lg border-2 px-3 py-2.5 text-center"
-                    >
-                      <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">HHS Unity Catalog Metastore</div>
-                      <motion.div animate={{opacity: hubActive ? 1 : 0.5}} transition={{duration:0.4}} className="text-[8px] text-purple-400 mt-0.5">
-                        {hubActive ? "All catalogs registered · Federated ACLs active" : "Shared discovery · Federated ACLs · Platform ops"}
-                      </motion.div>
-                    </motion.div>
-                    {/* Connector zone with flying packets */}
-                    <div className="relative w-full max-w-[280px]" style={{height:40}}>
-                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 280 40" preserveAspectRatio="none">
-                        {CENTRAL_AGENCY.map((ag, i) => (
-                          <line key={ag.id} x1={28+i*56+16} y1="40" x2={28+i*56+16} y2="0"
-                            stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2" opacity="0.45"/>
-                        ))}
-                      </svg>
-                      <AnimatePresence>
-                        {showPacket && (() => {
-                          const ag = CENTRAL_AGENCY[activeIdx];
+                  <div className="flex-1 flex flex-col items-center justify-center" style={{minHeight:210}}>
+                    <div className="relative" style={{width:200, height:185}}>
+                      <svg className="absolute inset-0" width="200" height="185" viewBox="0 0 200 185">
+                        <defs>
+                          <marker id="arr-consume" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+                            <path d="M0,0 L5,2.5 L0,5 Z" fill="#94a3b8" opacity="0.7"/>
+                          </marker>
+                        </defs>
+                        {/* Mesh edges */}
+                        {MESH_EDGES.map(([a,b],ei) => {
+                          const pa = PEERS[a], pb = PEERS[b];
+                          const edgeActive = allActive ||
+                            (pairActive && ((sa===a&&sb===b)||(sa===b&&sb===a)));
+                          const mx = (pa.cx+pb.cx)/2, my = (pa.cy+pb.cy)/2;
                           return (
-                            <motion.div key={`pkt-${step}`}
-                              initial={{bottom:0, opacity:1, scale:1}}
-                              animate={{bottom:40, opacity:0, scale:0.6}}
+                            <g key={ei}>
+                              <line x1={pa.cx} y1={pa.cy} x2={pb.cx} y2={pb.cy}
+                                stroke={edgeActive ? "#94a3b8" : "#1e293b"}
+                                strokeWidth={edgeActive ? 1.5 : 1}
+                                strokeDasharray={edgeActive ? "none" : "3 3"}
+                                opacity={edgeActive ? 0.75 : 0.3}
+                                markerEnd={edgeActive ? "url(#arr-consume)" : undefined}
+                              />
+                              {edgeActive && (
+                                <text x={mx} y={my-4} textAnchor="middle" fontSize="6.5" fill="#94a3b8" fontFamily="monospace" opacity="0.9">consume</text>
+                              )}
+                            </g>
+                          );
+                        })}
+                        {/* Nodes */}
+                        {PEERS.map((p,pi) => {
+                          const active = allActive || (pairActive && (sa===pi||sb===pi));
+                          return (
+                            <g key={p.id}>
+                              <circle cx={p.cx} cy={p.cy} r="19"
+                                fill={active ? p.color+"20" : "#0f172a"}
+                                stroke={active ? p.color : p.color+"44"}
+                                strokeWidth={active ? 2 : 1}
+                              />
+                              <text x={p.cx} y={p.cy+1} textAnchor="middle" dominantBaseline="middle"
+                                fontSize="8.5" fontWeight="bold" fill={active ? p.color : p.color+"88"}
+                                fontFamily="sans-serif">{p.label}</text>
+                              <text x={p.cx} y={p.cy+13} textAnchor="middle" fontSize="5.5" fill="#475569" fontFamily="monospace">{p.id}_prd</text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                      {/* Animated consume packet */}
+                      <AnimatePresence>
+                        {pairActive && (() => {
+                          const pa = PEERS[sa], pb = PEERS[sb];
+                          return (
+                            <motion.div key={`dpkt-${step}`}
+                              initial={{x: pa.cx-8, y: pa.cy-8, opacity:1, scale:1}}
+                              animate={{x: pb.cx-8, y: pb.cy-8, opacity:0, scale:0.5}}
                               exit={{opacity:0}}
-                              transition={{duration:1.1, ease:"easeOut"}}
-                              className="absolute w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-black"
-                              style={{left: 28+activeIdx*56+10, backgroundColor: ag.color, zIndex:10}}
-                            >{ag.label[0]}</motion.div>
+                              transition={{duration:1.1, ease:"easeInOut"}}
+                              className="absolute w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white"
+                              style={{backgroundColor: pa.color, zIndex:10}}
+                            >→</motion.div>
                           );
                         })()}
                       </AnimatePresence>
                     </div>
-                    {/* Agency cards */}
-                    <div className="flex gap-3 justify-center">
-                      {CENTRAL_AGENCY.map((ag, i) => {
-                        const isActive = i === activeIdx || hubActive;
-                        return (
-                          <motion.div key={ag.id}
-                            animate={{
-                              borderColor: isActive ? ag.color : ag.color+"44",
-                              boxShadow: isActive ? `0 0 12px ${ag.color}44` : "none",
-                              backgroundColor: isActive ? ag.color+"22" : ag.color+"0d",
-                            }}
-                            transition={{duration:0.35}}
-                            className="rounded-lg border px-2.5 py-2 text-center"
-                          >
-                            <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
-                            <div className="text-[8px] text-slate-500 mt-0.5">own catalog</div>
-                            <motion.div animate={{opacity: isActive ? 1 : 0.4}} className="text-[8px] text-slate-600">{ag.id}_prd</motion.div>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                    <motion.div animate={{opacity: step===0 ? 0 : 1}} transition={{duration:0.3}}
-                      className="text-[9px] text-center"
-                      style={{color: hubActive ? "#a855f7" : CENTRAL_AGENCY[Math.max(0,activeIdx)]?.color ?? "#64748b"}}
+                    <motion.div animate={{opacity: step===0?0:1}} transition={{duration:0.3}}
+                      className="text-[9px] text-slate-400 text-center mt-1 px-2"
                     >
-                      {hubActive
-                        ? "All agencies connected — cross-agency access via UC grants"
-                        : activeIdx >= 0 ? `${CENTRAL_AGENCY[activeIdx].label} publishing catalog to UC Metastore...` : ""}
+                      {allActive
+                        ? "Federated — any agency can consume any other's published catalog via UC grants"
+                        : pairActive ? `${PEERS[sa].label} consuming ${PEERS[sb].label}'s published catalog...` : ""}
                     </motion.div>
-                    <div className="flex gap-1 justify-center">
+                    <div className="flex gap-1 justify-center mt-2">
                       {Array.from({length:6}).map((_,i) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step===i ? "w-5 bg-blue-500" : "w-1 bg-slate-700"}`}/>
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step===i?"w-5 bg-blue-500":"w-1 bg-slate-700"}`}/>
                       ))}
                     </div>
                   </div>
                   <ul className="space-y-1 shrink-0">
-                    {["Agency controls its own catalog, quality, and ACLs","Central team provides platform ops and secure blueprints","Best for agencies with mature data engineering","Cross-agency reads via UC grants — no isolation"].map(pt=>(
+                    {["Agency controls its own catalog, quality, and ACLs","Central team provides platform ops and secure blueprints","Best for agencies with mature data engineering","No isolation — any BU can consume any other via UC grants"].map(pt=>(
                       <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-blue-400 shrink-0">·</span>{pt}</li>
                     ))}
                   </ul>
@@ -4707,114 +4721,150 @@ function Chapter14() {
               );
             })()}
 
-            {/* ── Centralized panel ── */}
+            {/* ── Centralized panel — hub-spoke with publish ↑ / consume ↓ ── */}
             {(() => {
-              const activeIdx       = step >= 1 && step <= 4 ? step - 1 : -1;
-              const hubActive       = step === 5;
-              const showUpPacket    = step >= 1 && step <= 4;
-              const showDownPackets = step === 5;
+              const activeIdx    = step >= 1 && step <= 4 ? step - 1 : -1;
+              const publishPhase = step >= 1 && step <= 4;
+              const consumePhase = step === 5;
+              // Agency x-centers in SVG (4 agencies spread 200px wide)
+              const AGX = [22, 70, 118, 166];
+              const HUB_CX = 100, HUB_CY = 28, AG_CY = 165;
               return (
                 <div className="bg-slate-900 rounded-xl border border-slate-800 p-5 flex flex-col gap-3">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B — Centralized (2 modes: PUSH &amp; PULL)</span>
-                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">HHS Central governs all published data — agency ETL (PUSH) or Central ETL (PULL)</h3>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-green-400">Pattern B — Centralized (PUSH &amp; PULL)</span>
+                    <h3 className="text-sm font-bold text-slate-100 mt-0.5">HHS Central is the hub — agencies publish up, consumers pull down</h3>
                   </div>
-                  <div className="flex-1 relative flex flex-col items-center gap-3 justify-center" style={{minHeight:200}}>
-                    {/* Central hub */}
-                    <motion.div
-                      animate={{
-                        borderColor: hubActive ? "#22c55e" : "#16a34a",
-                        boxShadow: hubActive ? "0 0 20px #22c55e55" : "0 0 0px transparent",
-                        backgroundColor: hubActive ? "#052e16" : "#0c1f10",
-                      }}
-                      transition={{duration:0.5}}
-                      className="w-full max-w-[280px] rounded-lg border-2 px-3 py-2.5 text-center"
-                    >
-                      <div className="text-[10px] font-bold text-green-300 uppercase tracking-wider">HHS Central</div>
-                      <motion.div animate={{opacity: hubActive ? 1 : 0.5}} transition={{duration:0.4}} className="text-[8px] text-green-500 mt-0.5">
-                        {hubActive ? "Validated · Published · ACLs enforced" : "Central catalog · Quality assurance · Metadata · ACLs"}
-                      </motion.div>
-                    </motion.div>
-                    {/* Connector zone with packets */}
-                    <div className="relative w-full max-w-[280px]" style={{height:40}}>
-                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 280 40" preserveAspectRatio="none">
-                        {CENTRAL_AGENCY.map((ag, i) => (
-                          <line key={ag.id} x1={28+i*56+16} y1="0" x2={28+i*56+16} y2="40"
-                            stroke={ag.color} strokeWidth="1.5" strokeDasharray="3 2" opacity="0.45"/>
-                        ))}
-                      </svg>
-                      <AnimatePresence>
-                        {showUpPacket && (() => {
-                          const ag = CENTRAL_AGENCY[activeIdx];
+                  <div className="flex-1 flex flex-col items-center justify-center" style={{minHeight:210}}>
+                    <div className="relative" style={{width:200, height:200}}>
+                      <svg className="absolute inset-0" width="200" height="200" viewBox="0 0 200 200">
+                        <defs>
+                          <marker id="arr-pub" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+                            <path d="M0,0 L5,2.5 L0,5 Z" fill="#f59e0b"/>
+                          </marker>
+                          <marker id="arr-con" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+                            <path d="M0,0 L5,2.5 L0,5 Z" fill="#22c55e"/>
+                          </marker>
+                        </defs>
+                        {/* Spokes */}
+                        {CENTRAL_AGENCY.map((ag, i) => {
+                          const agx = AGX[i];
+                          const isActive = i === activeIdx;
                           return (
-                            <motion.div key={`notify-${step}`}
-                              initial={{bottom:0, opacity:1, scale:1}}
-                              animate={{bottom:40, opacity:0, scale:0.7}}
+                            <g key={ag.id}>
+                              {/* publish arrow: agency → central */}
+                              <line x1={agx} y1={AG_CY-20} x2={HUB_CX-4} y2={HUB_CY+22}
+                                stroke={isActive ? "#f59e0b" : "#1e293b"}
+                                strokeWidth={isActive ? 2 : 1}
+                                strokeDasharray={isActive ? "none" : "3 3"}
+                                opacity={isActive ? 0.9 : 0.3}
+                                markerEnd={isActive ? "url(#arr-pub)" : undefined}
+                              />
+                              {/* consume arrow: central → agency */}
+                              <line x1={HUB_CX+4} y1={HUB_CY+22} x2={agx+4} y2={AG_CY-20}
+                                stroke={consumePhase ? "#22c55e" : "#1e293b"}
+                                strokeWidth={consumePhase ? 2 : 1}
+                                strokeDasharray={consumePhase ? "none" : "3 3"}
+                                opacity={consumePhase ? 0.9 : 0.3}
+                                markerEnd={consumePhase ? "url(#arr-con)" : undefined}
+                              />
+                            </g>
+                          );
+                        })}
+                        {/* publish / consume floating labels */}
+                        {publishPhase && activeIdx >= 0 && (
+                          <text x={(AGX[activeIdx]+HUB_CX)/2-16} y={(AG_CY+HUB_CY)/2+2}
+                            fontSize="7" fill="#f59e0b" fontFamily="monospace" textAnchor="middle">publish ↑</text>
+                        )}
+                        {consumePhase && (
+                          <text x={HUB_CX} y={(AG_CY+HUB_CY)/2}
+                            fontSize="7" fill="#22c55e" fontFamily="monospace" textAnchor="middle">consume ↓</text>
+                        )}
+                        {/* HHS Central hub */}
+                        <circle cx={HUB_CX} cy={HUB_CY} r="26"
+                          fill={consumePhase ? "#14532d40" : publishPhase ? "#0f271840" : "#0c1f1040"}
+                          stroke={consumePhase ? "#22c55e" : publishPhase ? "#16a34a" : "#166534"}
+                          strokeWidth={consumePhase || publishPhase ? 2.5 : 1.5}
+                        />
+                        <text x={HUB_CX} y={HUB_CY-3} textAnchor="middle" dominantBaseline="middle"
+                          fontSize="7.5" fontWeight="bold" fill="#4ade80" fontFamily="sans-serif">HHS</text>
+                        <text x={HUB_CX} y={HUB_CY+7} textAnchor="middle"
+                          fontSize="6" fill="#16a34a" fontFamily="sans-serif">Central</text>
+                        {/* Agency nodes */}
+                        {CENTRAL_AGENCY.map((ag, i) => {
+                          const agx = AGX[i];
+                          const isActive = i === activeIdx || consumePhase;
+                          return (
+                            <g key={ag.id}>
+                              <circle cx={agx} cy={AG_CY} r="17"
+                                fill={isActive ? ag.color+"20" : "#0f172a"}
+                                stroke={isActive ? ag.color : ag.color+"44"}
+                                strokeWidth={isActive ? 2 : 1}
+                              />
+                              <text x={agx} y={AG_CY+1} textAnchor="middle" dominantBaseline="middle"
+                                fontSize="8" fontWeight="bold" fill={isActive ? ag.color : ag.color+"88"}
+                                fontFamily="sans-serif">{ag.label}</text>
+                              <text x={agx} y={AG_CY+12} textAnchor="middle" fontSize="5.5" fill="#475569" fontFamily="monospace">isolated</text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                      {/* Animated publish packet (UP) */}
+                      <AnimatePresence>
+                        {publishPhase && activeIdx >= 0 && (() => {
+                          const agx = AGX[activeIdx];
+                          return (
+                            <motion.div key={`ppkt-${step}`}
+                              initial={{x: agx-8, y: AG_CY-28, opacity:1, scale:1}}
+                              animate={{x: HUB_CX-8, y: HUB_CY-8, opacity:0, scale:0.5}}
                               exit={{opacity:0}}
                               transition={{duration:1.0, ease:"easeOut"}}
-                              className="absolute w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
-                              style={{left: 28+activeIdx*56+10, backgroundColor: ag.color, color:"#000", zIndex:10}}
-                            >!</motion.div>
+                              className="absolute w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-black"
+                              style={{backgroundColor:"#f59e0b", zIndex:10}}
+                            >↑</motion.div>
                           );
                         })()}
                       </AnimatePresence>
+                      {/* Animated consume packets (DOWN) */}
                       <AnimatePresence>
-                        {showDownPackets && CENTRAL_AGENCY.map((ag, i) => (
-                          <motion.div key={`bc-${i}`}
-                            initial={{top:0, opacity:1, scale:1}}
-                            animate={{top:40, opacity:0, scale:0.7}}
+                        {consumePhase && CENTRAL_AGENCY.map((_ag, i) => (
+                          <motion.div key={`cpkt-${i}`}
+                            initial={{x: HUB_CX-8, y: HUB_CY-8, opacity:1, scale:1}}
+                            animate={{x: AGX[i]-8, y: AG_CY-28, opacity:0, scale:0.5}}
                             exit={{opacity:0}}
-                            transition={{duration:1.0, ease:"easeIn", delay: i*0.12}}
-                            className="absolute w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
-                            style={{left: 28+i*56+10, backgroundColor: ag.color, color:"#000", zIndex:10}}
-                          >v</motion.div>
+                            transition={{duration:1.0, ease:"easeIn", delay:i*0.12}}
+                            className="absolute w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-black"
+                            style={{backgroundColor:"#22c55e", zIndex:10}}
+                          >↓</motion.div>
                         ))}
                       </AnimatePresence>
                     </div>
-                    {/* Agency cards */}
-                    <div className="flex gap-3 justify-center">
-                      {CENTRAL_AGENCY.map((ag, i) => {
-                        const isActive = i === activeIdx || hubActive;
-                        return (
-                          <motion.div key={ag.id}
-                            animate={{
-                              borderColor: isActive ? ag.color : ag.color+"33",
-                              boxShadow: isActive ? `0 0 10px ${ag.color}33` : "none",
-                              backgroundColor: isActive ? ag.color+"18" : ag.color+"08",
-                            }}
-                            transition={{duration:0.35}}
-                            className="rounded-lg border px-2.5 py-2 text-center"
-                          >
-                            <div className="text-[11px] font-bold" style={{color:ag.color}}>{ag.label}</div>
-                            <div className="text-[8px] text-slate-500 mt-0.5">isolated</div>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                    <motion.div animate={{opacity: step===0 ? 0 : 1}} transition={{duration:0.3}}
-                      className="text-[9px] text-center"
-                      style={{color: hubActive ? "#22c55e" : CENTRAL_AGENCY[Math.max(0,activeIdx)]?.color ?? "#64748b"}}
+                    <motion.div animate={{opacity: step===0?0:1}} transition={{duration:0.3}}
+                      className="text-[9px] text-center mt-1 px-2"
+                      style={{color: consumePhase ? "#22c55e" : publishPhase ? "#f59e0b" : "#64748b"}}
                     >
-                      {hubActive
-                        ? "Central broadcasting published data to all agencies"
-                        : activeIdx >= 0 ? `${CENTRAL_AGENCY[activeIdx].label} notifying Central: ready to publish...` : ""}
+                      {consumePhase
+                        ? "Central distributes published data — agencies consume ↓"
+                        : activeIdx >= 0 ? `${CENTRAL_AGENCY[activeIdx].label} publishes ↑ to HHS Central` : ""}
                     </motion.div>
-                    <div className="flex gap-1 justify-center">
+                    <div className="flex gap-1 justify-center mt-2">
                       {Array.from({length:6}).map((_,i) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step===i ? "w-5 bg-green-500" : "w-1 bg-slate-700"}`}/>
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step===i?"w-5 bg-green-500":"w-1 bg-slate-700"}`}/>
                       ))}
                     </div>
                   </div>
                   <ul className="space-y-1 shrink-0">
-                    {["Central validates quality before publishing","Agencies are network-isolated from each other","Central enforces consistent metadata schemas","Two flavors: PUSH (agency ETL) and PULL (central ETL)"].map(pt=>(
+                    {["Agencies network-isolated from each other","Central validates quality before publishing","Central enforces consistent metadata schemas","Two modes: PUSH (agency ETL) and PULL (Central ETL)"].map(pt=>(
                       <li key={pt} className="flex gap-2 text-xs text-slate-400"><span className="text-green-400 shrink-0">·</span>{pt}</li>
                     ))}
                   </ul>
                 </div>
               );
             })()}
+
           </motion.div>
         )}
+
 
         {/* ── PUSH ──────────────────────────────────────────── */}
         {pattern === "push" && (
