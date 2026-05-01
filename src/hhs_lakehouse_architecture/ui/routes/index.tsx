@@ -3210,6 +3210,133 @@ function Chapter10() {
             );
           })}
 
+          {/* Tab Context Overlays */}
+
+          {panelTab === "router" && phase >= 2 && (
+            <g>
+              {/* Hub: BGP ASN + Firewall badge */}
+              <rect x={396} y={193} width={168} height={14} rx="3" fill="#050f1f" opacity="0.96" stroke="#3b82f620" strokeWidth="1"/>
+              <text x={480} y={203} textAnchor="middle" fontSize="7" fill="#60a5fa" fontWeight="600">BGP ASN 64512 · Network Firewall</text>
+
+              {/* On-prem BGP */}
+              <rect x={8} y={216} width={80} height={13} rx="3" fill="#050f1f" opacity="0.96"/>
+              <text x={48} y={225} textAnchor="middle" fontSize="7" fill="#94a3b8">BGP ASN 65000</text>
+
+              {/* Route table badges below each spoke */}
+              {[
+                { cx: 165, cy: 110, h: 85 },
+                { cx: 795, cy: 110, h: 85 },
+                { cx: 165, cy: 390, h: 85 },
+                { cx: 795, cy: 390, h: 85 },
+              ].map((n, i) => (
+                <g key={i}>
+                  <rect x={n.cx - 70} y={n.cy + n.h / 2 + 3} width={140} height={13} rx="3" fill="#05111f" opacity="0.96" stroke="#1e293b" strokeWidth="0.5"/>
+                  <text x={n.cx} y={n.cy + n.h / 2 + 12} textAnchor="middle" fontSize="6.5" fill="#7dd3fc">RT: 0.0.0.0/0 → Hub TGW</text>
+                </g>
+              ))}
+
+              {/* Firewall policy strip below Hub */}
+              <rect x={380} y={313} width={200} height={13} rx="3" fill="#050f1f" opacity="0.94" stroke="#3b82f620" strokeWidth="1"/>
+              <text x={480} y={322} textAnchor="middle" fontSize="6.5" fill="#93c5fd">DENY spoke↔spoke · ALLOW spoke → Hub NAT</text>
+
+              {/* Black-hole badge above hub */}
+              <rect x={396} y={180} width={168} height={12} rx="3" fill="#0f0505" opacity="0.94" stroke="#ef444420" strokeWidth="0.5"/>
+              <text x={480} y={189} textAnchor="middle" fontSize="6.5" fill="#fca5a5">RFC1918 black-hole · no direct spoke-to-spoke</text>
+            </g>
+          )}
+
+          {panelTab === "dns" && phase >= 2 && (
+            <g>
+              {/* Dashed DNS query lines from spokes to Hub resolver */}
+              {[
+                { cx: 165, cy: 110 },
+                { cx: 795, cy: 110 },
+                { cx: 165, cy: 390 },
+                { cx: 795, cy: 390 },
+              ].map((sp, i) => (
+                <line key={i} x1={sp.cx} y1={sp.cy} x2={480} y2={250}
+                  stroke="#6366f1" strokeWidth="1" strokeDasharray="3,5" opacity="0.35"/>
+              ))}
+
+              {/* Hub resolver IP */}
+              <rect x={394} y={192} width={172} height={14} rx="3" fill="#04040f" opacity="0.97" stroke="#6366f125" strokeWidth="1"/>
+              <text x={480} y={202} textAnchor="middle" fontSize="7" fill="#a5b4fc" fontWeight="600">Resolver 10.0.1.10 / .11 · Fwd → 10.0.1.20</text>
+
+              {/* Spoke nodes: DNS server label */}
+              {[
+                { cx: 165, cy: 110, h: 85 },
+                { cx: 795, cy: 110, h: 85 },
+                { cx: 165, cy: 390, h: 85 },
+              ].map((n, i) => (
+                <g key={i}>
+                  <rect x={n.cx - 60} y={n.cy + n.h / 2 + 3} width={120} height={12} rx="3" fill="#04040f" opacity="0.96"/>
+                  <text x={n.cx} y={n.cy + n.h / 2 + 12} textAnchor="middle" fontSize="6.5" fill="#a5b4fc">DNS → 10.0.1.10 (Hub)</text>
+                </g>
+              ))}
+
+              {/* Control Plane: private DNS zone override */}
+              <rect x={868} y={215} width={88} height={24} rx="3" fill="#04040f" opacity="0.97" stroke="#6366f125" strokeWidth="1"/>
+              <text x={912} y={225} textAnchor="middle" fontSize="6" fill="#c4b5fd">*.azuredatabricks.net</text>
+              <text x={912} y={234} textAnchor="middle" fontSize="6" fill="#818cf8">→ Private IP (PE)</text>
+
+              {/* Shared: storage + keyvault zones */}
+              <rect x={748} y={415} width={94} height={24} rx="3" fill="#04040f" opacity="0.97" stroke="#6366f125" strokeWidth="1"/>
+              <text x={795} y={425} textAnchor="middle" fontSize="6" fill="#c4b5fd">*.dfs.core.windows.net</text>
+              <text x={795} y={434} textAnchor="middle" fontSize="6" fill="#818cf8">*.vault.azure.net → PE</text>
+
+              {/* On-prem: conditional forwarder */}
+              <rect x={8} y={268} width={80} height={12} rx="3" fill="#04040f" opacity="0.96"/>
+              <text x={48} y={277} textAnchor="middle" fontSize="6.5" fill="#94a3b8">hhs.internal → fwd</text>
+            </g>
+          )}
+
+          {panelTab === "calc" && phase >= 3 && (() => {
+            const subnetIPs = Math.pow(2, 32 - calcSubnetPrefix);
+            const nodesPerSubnet = Math.floor((subnetIPs - 5) / 2);
+            const vpcIPsLocal = Math.pow(2, 32 - calcVpcPrefix);
+            const subnetsAvail = Math.floor(vpcIPsLocal / subnetIPs);
+            const maxWsLocal = Math.floor(subnetsAvail / 2);
+            const wsNodes = [
+              { id: "dev",     cx: 165, cy: 110, h: 85, idx: 1 },
+              { id: "staging", cx: 165, cy: 390, h: 85, idx: 3 },
+              { id: "prod",    cx: 795, cy: 110, h: 85, idx: 2 },
+            ];
+            const barMax = Math.floor((Math.pow(2, 32 - 19) - 5) / 2); // /19 max as reference
+            return (
+              <g>
+                {/* Hub: VPC summary */}
+                <rect x={392} y={191} width={176} height={14} rx="3" fill="#050018" opacity="0.97" stroke="#7c3aed25" strokeWidth="1"/>
+                <text x={480} y={201} textAnchor="middle" fontSize="7" fill="#c4b5fd" fontWeight="600">
+                  {`VPC /${calcVpcPrefix} · ${subnetsAvail} subnets · max ${maxWsLocal} workspaces`}
+                </text>
+
+                {/* Per-workspace node overlay */}
+                {wsNodes.map(n => {
+                  const cidr = `10.${n.idx}.0.0/${calcSubnetPrefix}`;
+                  const fillPct = Math.max(4, Math.min(100, Math.round(nodesPerSubnet / barMax * 100)));
+                  const barColor = fillPct > 75 ? "#10b981" : fillPct > 40 ? "#f59e0b" : "#ef4444";
+                  return (
+                    <g key={n.id}>
+                      {/* Badge above node */}
+                      <rect x={n.cx - 72} y={n.cy - n.h / 2 - 30} width={144} height={28} rx="4"
+                        fill="#050018" opacity="0.97" stroke="#7c3aed30" strokeWidth="1"/>
+                      <text x={n.cx} y={n.cy - n.h / 2 - 18} textAnchor="middle" fontSize="7" fill="#c4b5fd" fontWeight="600">
+                        {`/${calcSubnetPrefix} · ${nodesPerSubnet.toLocaleString()} nodes`}
+                      </text>
+                      <text x={n.cx} y={n.cy - n.h / 2 - 8} textAnchor="middle" fontSize="6.5" fill="#a78bfa">
+                        {cidr}
+                      </text>
+                      {/* Capacity bar below node */}
+                      <rect x={n.cx - 50} y={n.cy + n.h / 2 + 4} width={100} height={5} rx="2" fill="#1a0a30"/>
+                      <rect x={n.cx - 50} y={n.cy + n.h / 2 + 4} width={fillPct} height={5} rx="2" fill={barColor} opacity="0.85"/>
+                      <text x={n.cx + 54} y={n.cy + n.h / 2 + 9} fontSize="6" fill="#7c3aed" opacity="0.8">{fillPct}%</text>
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })()}
+
           {/* Data Flow Animation Overlay */}
           {showDataFlow && (
             <g>
