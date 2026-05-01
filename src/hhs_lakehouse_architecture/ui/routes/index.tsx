@@ -2994,6 +2994,13 @@ function Chapter10() {
   const nodeMap = Object.fromEntries(NET_NODES.map(n => [n.id, n])) as Record<NetNodeId, NetNode>;
   const sel = nodeMap[selected];
 
+  const SPOKE_SUBNETS: Record<string, { label: string; cidr: string }[]> = {
+    dev:     [{ label: "Cluster Subnet",   cidr: "10.1.0.0/21" }, { label: "Container Subnet", cidr: "10.1.8.0/21" }],
+    prod:    [{ label: "Cluster Subnet",   cidr: "10.2.0.0/21" }, { label: "Container Subnet", cidr: "10.2.8.0/21" }],
+    staging: [{ label: "Cluster Subnet",   cidr: "10.3.0.0/21" }, { label: "Container Subnet", cidr: "10.3.8.0/21" }],
+    shared:  [{ label: "Storage PE Subnet", cidr: "10.4.0.0/21" }, { label: "Services Subnet", cidr: "10.4.8.0/21" }],
+  };
+
   function handleReplay() {
     setPhase(0);
     setTimeout(() => { setPhase(1); }, 100);
@@ -3132,6 +3139,14 @@ function Chapter10() {
             const visible = phase >= node.phase;
             const isSelected = selected === node.id;
             const showComponents = phase >= 4 && !node.isExternal;
+            const isSpokeVpc = !node.isExternal && node.id !== "hub";
+            const spokeSubnets = SPOKE_SUBNETS[node.id];
+            // VPC container geometry: 11px horizontal padding each side, 14px above, 36px below for subnets
+            const vpcW = node.w + 22;
+            const vpcTopY = node.cy - node.h / 2 - 14;
+            const vpcH = node.h + 50;
+            const subBoxW = Math.floor((vpcW - 9) / 2);  // 2 boxes with 3px gap each side
+
             return (
               <motion.g
                 key={node.id}
@@ -3141,14 +3156,56 @@ function Chapter10() {
                 style={{ transformOrigin: `${node.cx}px ${node.cy}px`, cursor: "pointer" }}
                 onClick={() => setSelected(node.id)}
               >
+                {/* Selection glow — expanded for VPC spokes */}
                 {isSelected && (
                   <rect
-                    x={node.cx - node.w / 2 - 5} y={node.cy - node.h / 2 - 5}
-                    width={node.w + 10} height={node.h + 10}
-                    rx="12" fill={node.stroke} opacity="0.12"
+                    x={isSpokeVpc ? node.cx - vpcW / 2 - 5 : node.cx - node.w / 2 - 5}
+                    y={isSpokeVpc ? vpcTopY - 5 : node.cy - node.h / 2 - 5}
+                    width={isSpokeVpc ? vpcW + 10 : node.w + 10}
+                    height={isSpokeVpc ? vpcH + 10 : node.h + 10}
+                    rx="14" fill={node.stroke} opacity="0.12"
                     filter="url(#ch10glow)"
                   />
                 )}
+
+                {/* VPC container (dashed outer boundary) */}
+                {isSpokeVpc && (
+                  <>
+                    <rect
+                      x={node.cx - vpcW / 2} y={vpcTopY}
+                      width={vpcW} height={vpcH}
+                      rx="10" fill={node.fill} fillOpacity="0.25"
+                      stroke={node.stroke} strokeWidth={isSelected ? 2 : 1.4}
+                      strokeDasharray="7,4" opacity={0.85}
+                    />
+                    {/* "VPC" badge — top left */}
+                    <rect
+                      x={node.cx - vpcW / 2 + 5} y={vpcTopY + 3}
+                      width={20} height={11}
+                      rx="3" fill={node.stroke} opacity="0.25"
+                    />
+                    <text
+                      x={node.cx - vpcW / 2 + 15} y={vpcTopY + 11}
+                      textAnchor="middle" fontSize="6.5" fill={node.textColor}
+                      fontWeight="800" opacity="0.85"
+                    >
+                      VPC
+                    </text>
+                    {/* CIDR — top right */}
+                    {phase >= 3 && (
+                      <text
+                        x={node.cx + vpcW / 2 - 6} y={vpcTopY + 11}
+                        textAnchor="end" fontSize="6"
+                        fill={node.textColor} opacity="0.55"
+                        style={{ fontFamily: "ui-monospace, monospace" }}
+                      >
+                        {node.details.items.find(it => it.label === "VPC CIDR")?.value.split(" ")[0] ?? ""}
+                      </text>
+                    )}
+                  </>
+                )}
+
+                {/* Workspace inner box */}
                 <rect
                   x={node.cx - node.w / 2} y={node.cy - node.h / 2}
                   width={node.w} height={node.h} rx="8"
@@ -3206,6 +3263,29 @@ function Chapter10() {
                     {node.id === "onprem" ? "← VPN / ER" : "Private Link →"}
                   </text>
                 )}
+
+                {/* Subnet boxes inside VPC container */}
+                {isSpokeVpc && phase >= 4 && spokeSubnets && spokeSubnets.map((sn, i) => {
+                  const bx = node.cx - vpcW / 2 + 3 + i * (subBoxW + 3);
+                  const by = node.cy + node.h / 2 + 5;
+                  return (
+                    <g key={i}>
+                      <rect x={bx} y={by} width={subBoxW} height={24}
+                        rx="3" fill={node.stroke} fillOpacity="0.12"
+                        stroke={node.stroke} strokeWidth="0.7" strokeDasharray="3,2"
+                      />
+                      <text x={bx + subBoxW / 2} y={by + 9}
+                        textAnchor="middle" fontSize="6" fill={node.textColor} opacity="0.7" fontWeight="600">
+                        {sn.label}
+                      </text>
+                      <text x={bx + subBoxW / 2} y={by + 18}
+                        textAnchor="middle" fontSize="5.5" fill={node.textColor} opacity="0.5"
+                        style={{ fontFamily: "ui-monospace, monospace" }}>
+                        {sn.cidr}
+                      </text>
+                    </g>
+                  );
+                })}
               </motion.g>
             );
           })}
@@ -3222,7 +3302,7 @@ function Chapter10() {
               <rect x={8} y={216} width={80} height={13} rx="3" fill="#050f1f" opacity="0.96"/>
               <text x={48} y={225} textAnchor="middle" fontSize="7" fill="#94a3b8">BGP ASN 65000</text>
 
-              {/* Route table badges below each spoke */}
+              {/* Route table badges — below VPC container bottom (cy + h/2 + 36) */}
               {[
                 { cx: 165, cy: 110, h: 85 },
                 { cx: 795, cy: 110, h: 85 },
@@ -3230,8 +3310,8 @@ function Chapter10() {
                 { cx: 795, cy: 390, h: 85 },
               ].map((n, i) => (
                 <g key={i}>
-                  <rect x={n.cx - 70} y={n.cy + n.h / 2 + 3} width={140} height={13} rx="3" fill="#05111f" opacity="0.96" stroke="#1e293b" strokeWidth="0.5"/>
-                  <text x={n.cx} y={n.cy + n.h / 2 + 12} textAnchor="middle" fontSize="6.5" fill="#7dd3fc">RT: 0.0.0.0/0 → Hub TGW</text>
+                  <rect x={n.cx - 70} y={n.cy + n.h / 2 + 39} width={140} height={13} rx="3" fill="#05111f" opacity="0.96" stroke="#1e293b" strokeWidth="0.5"/>
+                  <text x={n.cx} y={n.cy + n.h / 2 + 48} textAnchor="middle" fontSize="6.5" fill="#7dd3fc">RT: 0.0.0.0/0 → Hub TGW</text>
                 </g>
               ))}
 
@@ -3262,15 +3342,15 @@ function Chapter10() {
               <rect x={394} y={192} width={172} height={14} rx="3" fill="#04040f" opacity="0.97" stroke="#6366f125" strokeWidth="1"/>
               <text x={480} y={202} textAnchor="middle" fontSize="7" fill="#a5b4fc" fontWeight="600">Resolver 10.0.1.10 / .11 · Fwd → 10.0.1.20</text>
 
-              {/* Spoke nodes: DNS server label */}
+              {/* Spoke nodes: DNS server label — below VPC container */}
               {[
                 { cx: 165, cy: 110, h: 85 },
                 { cx: 795, cy: 110, h: 85 },
                 { cx: 165, cy: 390, h: 85 },
               ].map((n, i) => (
                 <g key={i}>
-                  <rect x={n.cx - 60} y={n.cy + n.h / 2 + 3} width={120} height={12} rx="3" fill="#04040f" opacity="0.96"/>
-                  <text x={n.cx} y={n.cy + n.h / 2 + 12} textAnchor="middle" fontSize="6.5" fill="#a5b4fc">DNS → 10.0.1.10 (Hub)</text>
+                  <rect x={n.cx - 60} y={n.cy + n.h / 2 + 39} width={120} height={12} rx="3" fill="#04040f" opacity="0.96"/>
+                  <text x={n.cx} y={n.cy + n.h / 2 + 48} textAnchor="middle" fontSize="6.5" fill="#a5b4fc">DNS → 10.0.1.10 (Hub)</text>
                 </g>
               ))}
 
