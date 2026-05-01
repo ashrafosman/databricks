@@ -4056,117 +4056,73 @@ const SHARE_NODES: ShareNode[] = [
 ];
 
 function Chapter12() {
-  const [phase, setPhase] = useState(0);
   const [selId, setSelId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      await sleep(300); if (cancelled) return; setPhase(1);
-      await sleep(500); if (cancelled) return; setPhase(2);
-      await sleep(500); if (cancelled) return; setPhase(3);
-    }
-    run();
-    return () => { cancelled = true; };
-  }, []);
-
   const sel = selId ? SHARE_NODES.find(n => n.id === selId) ?? null : null;
-  const internal = SHARE_NODES.filter(n => n.category === "internal");
-  const external = SHARE_NODES.filter(n => n.category === "external");
-  const nondb    = SHARE_NODES.filter(n => n.category === "nondb");
 
-  function Col({ nodes, colLabel, colSub, colColor, colDecision, phaseShow }:
-    { nodes: ShareNode[]; colLabel: string; colSub: string; colColor: string; colDecision: string; phaseShow: number }) {
-    return (
-      <motion.div
-        className="flex flex-col gap-2"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: phase >= phaseShow ? 1 : 0, y: phase >= phaseShow ? 0 : 10 }}
-        transition={{ duration: 0.4 }}
-      >
-        {/* Column header */}
-        <div className="flex flex-col items-center gap-1">
-          <div className={`w-0.5 h-4 ${colColor.replace("text-", "bg-")}/50`} />
-          <div className={`w-full rounded-lg border px-3 py-1.5 text-center ${colColor === "text-blue-400" ? "border-blue-700/50 bg-blue-950/30" : colColor === "text-purple-400" ? "border-purple-700/50 bg-purple-950/30" : "border-slate-600/50 bg-slate-800/30"}`}>
-            <p className={`text-sm font-black ${colColor}`}>{colLabel}</p>
-            <p className="text-[11px] text-slate-500">{colSub}</p>
-          </div>
-          <div className={`w-0.5 h-3 bg-slate-600/40`} />
-          <div className="text-[11px] text-slate-500 border border-slate-700/40 rounded px-2 py-0.5 text-center">◆ {colDecision}</div>
-          <div className={`w-0.5 h-3 bg-slate-600/40`} />
-        </div>
-        {/* Method cards */}
-        <div className="space-y-2 flex-1">
-          {nodes.map((node, i) => {
-            const isSel = selId === node.id;
-            return (
-              <motion.button
-                key={node.id}
-                onClick={() => setSelId(isSel ? null : node.id)}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: phase >= 3 ? 1 : 0, y: phase >= 3 ? 0 : 6 }}
-                transition={{ delay: i * 0.08, duration: 0.3 }}
-                className={`w-full text-left rounded-xl border p-3 transition-all ${
-                  isSel ? `${node.border} ring-2 ring-current ${node.bg}` : `${node.border} ${node.bg} hover:opacity-90`
-                }`}
-              >
-                <div className="flex items-start gap-2 mb-1.5">
-                  <div className={`p-1.5 rounded-lg border shrink-0 ${node.badge}`}>
-                    <node.Icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className={`text-[10px] font-bold px-1 py-0.5 rounded border shrink-0 ${node.badge}`}>{node.num}</span>
-                      <span className={`text-sm font-bold leading-tight truncate ${node.text}`}>{node.label}</span>
-                    </div>
-                    <p className="text-[12px] text-slate-500">{node.sublabel}</p>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-600 italic">→ {node.condition}</p>
-              </motion.button>
-            );
-          })}
-        </div>
-      </motion.div>
-    );
-  }
+  // Invisible hotspot regions as % of image (1509 × 840)
+  // { id, cx: center-x%, cy: center-y%, w%, h% }
+  const HOTSPOTS: {id:string; cx:number; cy:number; w:number; h:number}[] = [
+    { id:"1a",  cx:11,  cy:80, w:17, h:22 },  // UC Grants & Workspace Binding
+    { id:"1c",  cx:28,  cy:85, w:16, h:15 },  // Cross-Metastore D2D Delta Sharing
+    { id:"2a",  cx:44,  cy:64, w:13, h:18 },  // Direct D2D Delta Sharing
+    { id:"2b",  cx:43,  cy:87, w:10, h:12 },  // Private Exchange
+    { id:"2c",  cx:53,  cy:80, w:12, h:20 },  // Public Marketplace
+    { id:"2d",  cx:62,  cy:84, w:11, h:16 },  // Clean Rooms
+    { id:"3a",  cx:72,  cy:65, w:13, h:28 },  // Delta Sharing Open Protocol
+    { id:"3b",  cx:86,  cy:62, w:17, h:27 },  // JDBC/ODBC & Native Connectors
+    { id:"3c",  cx:87,  cy:85, w:15, h:16 },  // SQL Execution API / CLI
+  ];
 
   return (
     <div className="h-full flex flex-col gap-2 overflow-hidden">
 
-      {/* Header */}
-      <div className="shrink-0 flex items-center justify-between">
-        <div>
-          <p className="text-[13px] font-bold tracking-widest text-blue-400/80 mb-0.5 uppercase">Data Sharing Decision Tree</p>
-          <h2 className="text-lg font-black text-white leading-tight">Sharing Databricks Data Products</h2>
+      {/* Image with hotspots */}
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <div
+          className="relative rounded-xl overflow-hidden shadow-2xl"
+          style={{ aspectRatio:"1509/840", maxWidth:"100%", maxHeight:"100%", height:"100%", width:"auto" }}
+        >
+          <img
+            src="/sharing-decision-tree.png"
+            alt="Decision Tree: Sharing Databricks Data Products"
+            className="w-full h-full"
+            draggable={false}
+          />
+
+          {/* Invisible hotspot buttons */}
+          {HOTSPOTS.map(hs => {
+            const node = SHARE_NODES.find(n => n.id === hs.id);
+            if (!node) return null;
+            const isSel = selId === hs.id;
+            return (
+              <button
+                key={hs.id}
+                onClick={() => setSelId(isSel ? null : hs.id)}
+                title={`${node.num}: ${node.label}`}
+                className={`absolute rounded-xl cursor-pointer transition-all duration-200 focus:outline-none ${
+                  isSel
+                    ? `border-2 ring-2 ring-white/30 bg-white/10 backdrop-blur-sm`
+                    : "border-2 border-transparent hover:border-white/50 hover:bg-white/8"
+                }`}
+                style={{
+                  borderColor: isSel ? node.border.replace("border-","").replace("/60","").replace("/50","") : undefined,
+                  left:   `${hs.cx - hs.w/2}%`,
+                  top:    `${hs.cy - hs.h/2}%`,
+                  width:  `${hs.w}%`,
+                  height: `${hs.h}%`,
+                }}
+              />
+            );
+          })}
         </div>
-        <p className="text-[12px] text-slate-500">← Click any method to see HHS use case</p>
       </div>
 
-      {/* Decision tree root (animated) */}
-      <motion.div
-        className="shrink-0 flex flex-col items-center gap-1"
-        initial={{ opacity: 0 }} animate={{ opacity: phase >= 1 ? 1 : 0 }} transition={{ duration: 0.5 }}
-      >
-        <div className="flex items-center gap-2 px-5 py-2 rounded-full bg-slate-700/80 border border-slate-500 text-white text-sm font-bold">
-          <Database className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          USER NEEDS A DATA PRODUCT
-        </div>
-        <div className="w-0.5 h-3 bg-slate-600" />
-        <div className="px-5 py-1.5 rounded-lg border border-slate-400/60 bg-slate-800/60 text-slate-200 text-sm font-semibold">
-          ◆ WHO IS THE RECIPIENT?
-        </div>
-      </motion.div>
-
-      {/* Three columns */}
-      <div className="flex-1 grid grid-cols-3 gap-4 min-h-0 overflow-y-auto">
-        <Col nodes={internal} colLabel="INTERNAL" colSub="Same Org"
-          colColor="text-blue-400" colDecision="Data across metastores?" phaseShow={2} />
-        <Col nodes={external} colLabel="EXTERNAL" colSub="Other Accounts · Databricks + UC"
-          colColor="text-purple-400" colDecision="Distribution scope & requirements?" phaseShow={2} />
-        <Col nodes={nondb} colLabel="NON-DATABRICKS" colSub="Any tool · Any language"
-          colColor="text-slate-300" colDecision="Access method?" phaseShow={2} />
-      </div>
+      {/* Hint when nothing selected */}
+      {!sel && (
+        <p className="shrink-0 text-center text-[11px] text-slate-600">
+          Click any sharing method on the diagram to see the HHS use case &amp; implementation details
+        </p>
+      )}
 
       {/* Detail panel */}
       <AnimatePresence>
@@ -4188,7 +4144,10 @@ function Chapter12() {
                   </div>
                   <span className={`text-[10px] font-bold px-1 py-0.5 rounded border ${sel.badge}`}>{sel.num}</span>
                   <span className={`text-sm font-black ${sel.text}`}>{sel.label}</span>
-                  <span className="ml-auto text-[11px] text-slate-500 border border-slate-700/40 rounded px-1.5">HHS use case</span>
+                  <button
+                    onClick={() => setSelId(null)}
+                    className="ml-auto text-slate-600 hover:text-slate-400 text-xs px-1.5 py-0.5 rounded border border-slate-700/50 hover:border-slate-600 transition-colors"
+                  >✕</button>
                 </div>
                 <p className="text-[13px] text-slate-200 mb-2 leading-relaxed">{sel.hhsUseCase}</p>
                 <div className="flex items-center gap-1.5 mb-1">
@@ -4219,6 +4178,7 @@ function Chapter12() {
     </div>
   );
 }
+
 
 // ─── Chapter 13 ───────────────────────────────────────────────────────────────
 
