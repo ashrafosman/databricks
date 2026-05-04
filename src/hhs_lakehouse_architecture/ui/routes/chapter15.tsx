@@ -465,42 +465,25 @@ function EnvironmentsTab() {
               exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}
               className="space-y-4"
             >
-              <div className="space-y-3">
-                {/* Account */}
-                <div className="flex justify-center">
-                  <div className="rounded-lg border border-slate-600/50 bg-slate-800/40 px-6 py-2 text-center">
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Account</p>
-                    <p className="text-[12px] text-slate-300 font-semibold">HHS Databricks Account</p>
-                  </div>
-                </div>
-                <div className="flex justify-center"><div className="w-px h-4 bg-indigo-700/50" /></div>
-                {/* Metastore */}
-                <div className="flex justify-center">
-                  <div className="rounded-xl border-2 border-indigo-600/60 bg-indigo-950/30 px-8 py-3 text-center min-w-[280px]">
-                    <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Metastore · Data Security Boundary</p>
-                    <p className="text-[13px] text-indigo-300 font-bold mt-0.5">hhs-metastore-us-east</p>
-                    <div className="mt-3 flex gap-2 justify-center flex-wrap">
-                      {catalogs.map(cat => {
-                        const c = catColor[cat] ?? { stroke: "#6366f1", text: "#a5b4fc", bg: "#1e1b4b40" };
-                        return (
-                          <div key={cat} className="rounded-lg border px-3 py-2 text-center min-w-[80px]"
-                            style={{ borderColor: c.stroke + "80", background: c.bg }}>
-                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.stroke }}>Catalog</p>
-                            <p className="text-[12px] font-bold mt-0.5" style={{ color: c.text }}>{cat}</p>
-                            <div className="mt-1.5 space-y-0.5">
-                              {["bronze","silver","gold"].map(s => (
-                                <div key={s} className="text-[9px] rounded px-1.5 py-0.5 border text-center"
-                                  style={{ color: "#10b981", borderColor: "#10b98130", background: "#05291620" }}>
-                                  {s}
-                                </div>
-                              ))}
-                            </div>
+              <div className="flex gap-2 justify-center flex-wrap">
+                {catalogs.map(cat => {
+                  const c = catColor[cat] ?? { stroke: "#6366f1", text: "#a5b4fc", bg: "#1e1b4b40" };
+                  return (
+                    <div key={cat} className="rounded-lg border px-3 py-2 text-center min-w-[80px]"
+                      style={{ borderColor: c.stroke + "80", background: c.bg }}>
+                      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.stroke }}>Catalog</p>
+                      <p className="text-[12px] font-bold mt-0.5" style={{ color: c.text }}>{cat}</p>
+                      <div className="mt-1.5 space-y-0.5">
+                        {["bronze","silver","gold"].map(s => (
+                          <div key={s} className="text-[9px] rounded px-1.5 py-0.5 border text-center"
+                            style={{ color: "#10b981", borderColor: "#10b98130", background: "#05291620" }}>
+                            {s}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
 
               {/* Catalog strategy note */}
