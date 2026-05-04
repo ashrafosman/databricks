@@ -12,6 +12,7 @@ import {
   Share2, Globe, Shield, Monitor,
 } from "lucide-react";
 import { useTheme } from "@/components/apx/theme-provider";
+import { Chapter15 } from "./chapter15";
 
 export const Route = createFileRoute("/")({
   component: HHSChapters,
@@ -5656,6 +5657,11 @@ const CHAPTERS = [
     title: "Addendum A — UC Multi-Agency Architecture",
     desc: "Distributed vs Centralized publishing patterns for Unity Catalog across HHS component agencies — PUSH and PULL governance models.",
   },
+  {
+    n: 15,
+    title: "Addendum B — Unity Catalog Explainer",
+    desc: "De-mystifies UC hierarchy, environment isolation, group design, and workspace topology through interactive diagrams.",
+  },
 ];
 
 function HHSChapters() {
@@ -5784,7 +5790,7 @@ function HHSChapters() {
             transition={{ duration: 0.4 }}
             className="h-full"
           >
-            {chapter === 1 ? <Chapter1 /> : chapter === 2 ? <Chapter2 /> : chapter === 3 ? <Chapter3 /> : chapter === 4 ? <Chapter4 /> : chapter === 5 ? <Chapter5 /> : chapter === 6 ? <Chapter6 /> : chapter === 7 ? <Chapter7 /> : chapter === 8 ? <Chapter8 /> : chapter === 9 ? <Chapter9 /> : chapter === 10 ? <Chapter10 /> : chapter === 11 ? <Chapter11 /> : chapter === 12 ? <Chapter12 /> : chapter === 13 ? <Chapter13 /> : <Chapter14 />}
+            {chapter === 1 ? <Chapter1 /> : chapter === 2 ? <Chapter2 /> : chapter === 3 ? <Chapter3 /> : chapter === 4 ? <Chapter4 /> : chapter === 5 ? <Chapter5 /> : chapter === 6 ? <Chapter6 /> : chapter === 7 ? <Chapter7 /> : chapter === 8 ? <Chapter8 /> : chapter === 9 ? <Chapter9 /> : chapter === 10 ? <Chapter10 /> : chapter === 11 ? <Chapter11 /> : chapter === 12 ? <Chapter12 /> : chapter === 13 ? <Chapter13 /> : chapter === 14 ? <Chapter14 /> : <Chapter15 />}
           </motion.div>
         </AnimatePresence>
       </main>
