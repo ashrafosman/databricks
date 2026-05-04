@@ -706,9 +706,9 @@ function GroupsTab() {
 // ─── Workspaces Tab ───────────────────────────────────────────────────────────
 
 const WORKSPACES_EX = [
-  { id: "ws-eng", label: "ws-hhs-eng", purpose: "Data Engineering", items: ["Job clusters", "Delta Live Tables", "Notebooks"], color: "#0ea5e9", fill: "#082f49" },
-  { id: "ws-bi",  label: "ws-hhs-bi",  purpose: "Business Intelligence", items: ["SQL Warehouses", "Dashboards", "Genie"], color: "#10b981", fill: "#052916" },
-  { id: "ws-ml",  label: "ws-hhs-ml",  purpose: "ML Platform", items: ["GPU clusters", "MLflow", "Feature Store"], color: "#8b5cf6", fill: "#1a0a30" },
+  { id: "ws-eng", label: "ws-hhs-eng", purpose: "Data Engineering",      items: ["Job clusters", "Delta Live Tables", "Notebooks"],  color: "#0ea5e9", fill: "#082f49", binds: ["dev","qa","prod"] },
+  { id: "ws-bi",  label: "ws-hhs-bi",  purpose: "Business Intelligence", items: ["SQL Warehouses", "Dashboards", "Genie"],           color: "#10b981", fill: "#052916", binds: ["prod"] },
+  { id: "ws-ml",  label: "ws-hhs-ml",  purpose: "ML Platform",           items: ["GPU clusters", "MLflow", "Feature Store"],         color: "#8b5cf6", fill: "#1a0a30", binds: ["dev","prod"] },
 ];
 
 const CHANGE_TABLE = [
@@ -722,7 +722,13 @@ const CHANGE_TABLE = [
 
 function WorkspacesTab() {
   const [selectedWs, setSelectedWs] = useState<string | null>(null);
-  const ws = selectedWs ? WORKSPACES_EX.find(w => w.id === selectedWs) : null;
+  const selected = selectedWs ? WORKSPACES_EX.find(w => w.id === selectedWs) : null;
+
+  const CAT_META = [
+    { id: "dev",  label: "dev",  color: "#0ea5e9", fill: "#082f49" },
+    { id: "qa",   label: "qa",   color: "#f59e0b", fill: "#3b2702" },
+    { id: "prod", label: "prod", color: "#10b981", fill: "#052916" },
+  ];
 
   return (
     <div className="h-full flex flex-col gap-4 overflow-y-auto">
@@ -731,39 +737,59 @@ function WorkspacesTab() {
         <Database className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
         <p className="text-[12px] text-sky-200 leading-relaxed">
           <span className="font-bold">A workspace is a compute and UX boundary, not a data boundary.</span>{" "}
-          All workspaces attached to the same metastore share the same catalog permission graph. Adding or removing a workspace does not change who can see what data.
+          Click a workspace to see which catalogs it has bound. Binding controls UI visibility — it does not change UC grants.
         </p>
       </div>
 
-      {/* Workspace cards + metastore diagram */}
+      {/* Workspace cards */}
       <div className="flex gap-3 shrink-0">
-        {WORKSPACES_EX.map(w => (
-          <button
-            key={w.id}
-            onClick={() => setSelectedWs(selectedWs === w.id ? null : w.id)}
-            className="flex-1 rounded-xl border text-left p-3 transition-colors"
-            style={{ borderColor: selectedWs === w.id ? w.color : w.color + "40", background: selectedWs === w.id ? w.fill + "dd" : w.fill + "40" }}
-          >
-            <p className="text-[12px] font-bold" style={{ color: w.color }}>{w.label}</p>
-            <p className="text-[11px] mt-0.5 mb-2" style={{ color: w.color, opacity: 0.65 }}>{w.purpose}</p>
-            {w.items.map((item, i) => (
-              <div key={i} className="text-[11px] text-slate-500 leading-loose">· {item}</div>
-            ))}
-          </button>
-        ))}
+        {WORKSPACES_EX.map(w => {
+          const isActive = selectedWs === w.id;
+          return (
+            <button
+              key={w.id}
+              onClick={() => setSelectedWs(isActive ? null : w.id)}
+              className="flex-1 rounded-xl border text-left p-3 transition-all"
+              style={{ borderColor: isActive ? w.color : w.color + "40", background: isActive ? w.fill + "dd" : w.fill + "40" }}
+            >
+              <p className="text-[12px] font-bold" style={{ color: w.color }}>{w.label}</p>
+              <p className="text-[11px] mt-0.5 mb-2" style={{ color: w.color, opacity: 0.65 }}>{w.purpose}</p>
+              {w.items.map((item, i) => (
+                <div key={i} className="text-[11px] text-slate-500 leading-loose">· {item}</div>
+              ))}
+              {/* Bound catalog pills */}
+              <div className="flex gap-1 flex-wrap mt-2.5 pt-2 border-t" style={{ borderColor: w.color + "30" }}>
+                <span className="text-[9px] text-slate-600 self-center mr-0.5">binds:</span>
+                {CAT_META.map(c => {
+                  const bound = w.binds.includes(c.id);
+                  return (
+                    <span key={c.id}
+                      className="text-[9px] px-1.5 py-0.5 rounded border font-semibold transition-all"
+                      style={bound
+                        ? { color: c.color, borderColor: c.color + "80", background: c.fill + "cc" }
+                        : { color: "#334155", borderColor: "#1e293b", background: "transparent" }
+                      }>
+                      {c.label}
+                    </span>
+                  );
+                })}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Connecting lines SVG */}
-      <div className="h-10 shrink-0 relative">
+      <div className="h-8 shrink-0 relative">
         <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
           <line x1="17%" y1="0" x2="50%" y2="100%" stroke="#334155" strokeWidth="1.5" strokeDasharray="4,3" />
           <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#334155" strokeWidth="1.5" strokeDasharray="4,3" />
           <line x1="83%" y1="0" x2="50%" y2="100%" stroke="#334155" strokeWidth="1.5" strokeDasharray="4,3" />
-          <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#475569">attach to</text>
+          <text x="50%" y="52%" textAnchor="middle" dominantBaseline="middle" fontSize="9" fill="#475569">attach to metastore</text>
         </svg>
       </div>
 
-      {/* Metastore block */}
+      {/* Metastore block — catalogs highlight/dim based on selected workspace binding */}
       <div className="rounded-xl border-2 border-indigo-600/50 bg-indigo-950/20 p-3 shrink-0">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
@@ -771,21 +797,39 @@ function WorkspacesTab() {
           <span className="ml-auto text-[10px] text-indigo-500 border border-indigo-800 rounded px-1.5 py-0.5">DATA SECURITY BOUNDARY</span>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {["dev","qa","prod"].map((c, i) => {
-            const colors = [["#0ea5e9","#082f49"],["#f59e0b","#3b2702"],["#10b981","#052916"]][i];
+          {CAT_META.map(c => {
+            const bound = selected ? selected.binds.includes(c.id) : true;
+            const unbound = selected && !bound;
             return (
-              <div key={c} className="rounded-lg border px-3 py-1.5 text-center min-w-[80px]"
-                style={{ borderColor: colors[0] + "60", background: colors[1] + "80" }}>
-                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: colors[0] }}>Catalog</p>
-                <p className="text-[12px] font-bold" style={{ color: colors[0] }}>{c}</p>
-                <p className="text-[9px] mt-1" style={{ color: colors[0], opacity: 0.55 }}>bronze · silver · gold</p>
+              <div key={c.id}
+                className="rounded-lg border px-3 py-2 text-center min-w-[90px] transition-all duration-300"
+                style={{
+                  borderColor: unbound ? "#1e293b" : c.color + (bound && selected ? "cc" : "50"),
+                  background:  unbound ? "#0f172a" : c.fill + (bound && selected ? "cc" : "80"),
+                  opacity: unbound ? 0.3 : 1,
+                  boxShadow: bound && selected ? `0 0 10px ${c.color}30` : "none",
+                }}>
+                {bound && selected && (
+                  <p className="text-[8px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "#06b6d4" }}>bound ✓</p>
+                )}
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: unbound ? "#334155" : c.color }}>Catalog</p>
+                <p className="text-[12px] font-bold" style={{ color: unbound ? "#334155" : c.color }}>{c.id}</p>
+                <p className="text-[9px] mt-1" style={{ color: unbound ? "#1e293b" : c.color, opacity: unbound ? 1 : 0.55 }}>
+                  {unbound ? "not visible" : "bronze · silver · gold"}
+                </p>
               </div>
             );
           })}
-          <div className="rounded-lg border border-slate-700/40 bg-slate-800/20 px-3 py-1.5 text-center min-w-[80px] flex items-center justify-center">
+          <div className="rounded-lg border border-slate-700/40 bg-slate-800/20 px-3 py-2 text-center min-w-[80px] flex items-center justify-center">
             <p className="text-[10px] text-slate-600">+ lineage<br/>audit logs<br/>grants</p>
           </div>
         </div>
+        {selected && (
+          <p className="text-[11px] text-cyan-500/70 mt-2.5 pt-2 border-t border-indigo-900/40">
+            &#9642; <span className="font-semibold" style={{ color: selected.color }}>{selected.label}</span> sees{" "}
+            {selected.binds.join(", ")} — other catalogs are hidden in its UI even if grants exist.
+          </p>
+        )}
       </div>
 
       {/* What changes table */}
