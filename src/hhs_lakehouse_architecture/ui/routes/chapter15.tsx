@@ -4,80 +4,85 @@ import { CheckCircle, AlertTriangle, Users, ChevronRight, Database, Shield } fro
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type UCLevel = "account" | "metastore" | "workspace" | "catalog" | "schema" | "table";
 type CatalogMode = "env" | "domain" | "hybrid";
 type UCTab = "hierarchy" | "environments" | "groups" | "workspaces";
+type PersonaId = "account-admin" | "metastore-admin" | "data-steward" | "workspace-admin";
 
-interface NodeMeta {
-  id: string; level: UCLevel; label: string; sublabel: string;
-  stroke: string; fill: string; textColor: string;
-  definition: string; owner: string; ownerNote: string;
-  configChoices: string[]; mistake: string; mistakeFix: string;
-  permExample?: string;
-}
+// ─── Buildup Step Data ──────────────────────────────────────────────────────────────────────────────
 
-// ─── Node Metadata ────────────────────────────────────────────────────────────
+const PERSONAS = {
+  "account-admin":   { label: "Account Admin",   scope: "Account · Identity Root",      color: "#64748b" },
+  "metastore-admin": { label: "Metastore Admin", scope: "Metastore · Data Governance",  color: "#6366f1" },
+  "data-steward":    { label: "Data Steward",    scope: "Catalog · Schema Governance",  color: "#f59e0b" },
+  "workspace-admin": { label: "Workspace Admin", scope: "Workspace · Compute & UX",     color: "#0ea5e9" },
+} as const;
 
-const NODES: Record<string, NodeMeta> = {
-  account: {
-    id: "account", level: "account", label: "Account", sublabel: "Databricks Account",
-    stroke: "#64748b", fill: "#0f172a60", textColor: "#cbd5e1",
-    definition: "The top-level Databricks contract entity. All workspaces, users, metastores, and billing belong to a single account. The account is your identity root — your IdP (Entra ID / Okta) syncs here.",
-    owner: "Account Admin", ownerNote: "Central platform team. Can create workspaces and grant metastore admin. Does NOT control data permissions — that's the metastore admin.",
-    configChoices: ["One account per organization (standard)", "IdP synced at account level (users + account-level groups)", "Account console: accounts.azuredatabricks.net / accounts.cloud.databricks.com"],
-    mistake: "Confusing 'account admin' with 'metastore admin'.",
-    mistakeFix: "Account admin = manages workspaces and identity. Metastore admin = manages Unity Catalog governance. These should be separate people for least-privilege.",
+const BUILDUP_STEPS: Array<{
+  persona: PersonaId; title: string; action: string; why: string; snippet?: string;
+}> = [
+  {
+    persona: "account-admin",
+    title: "Create the Databricks Account",
+    action: "Provisions the Databricks account — the global identity root that owns all workspaces, users, metastores, and billing.",
+    why: "Your IdP (Entra ID / Okta) syncs at the account level. Every user, group, and service principal is created here before anything else exists.",
   },
-  metastore: {
-    id: "metastore", level: "metastore", label: "Metastore", sublabel: "Unity Catalog · Data Security Boundary",
-    stroke: "#6366f1", fill: "#1e1b4b50", textColor: "#a5b4fc",
-    definition: "The top-level Unity Catalog container. It owns all catalogs, schemas, tables, grants, lineage, and audit logs. One metastore per region per regulatory boundary. The metastore IS the data security perimeter — not the workspace.",
-    owner: "Metastore Admin", ownerNote: "Granted in the account console. Can create catalogs and assign catalog-level owners. Typically your data platform governance team.",
-    configChoices: ["One metastore per region (recommended default)", "Separate metastore per compliance boundary (FedRAMP High, HIPAA strict air-gap)", "Storage root: default managed storage for all tables without explicit location"],
-    mistake: "Creating multiple metastores for team or environment isolation.",
-    mistakeFix: "Catalogs + groups are sufficient for team and environment isolation within one metastore. Multiple metastores only when a hard regulatory wall is required (audit separation, physical air-gap).",
-    permExample: "GRANT CREATE CATALOG ON METASTORE TO platform_admins;",
+  {
+    persona: "account-admin",
+    title: "Provision Workspaces",
+    action: "Creates three workspaces — ws-hhs-eng, ws-hhs-bi, ws-hhs-ml — each scoped to a team’s compute and UX needs.",
+    why: "Workspaces are compute boundaries, not data boundaries. Each team gets its own cluster policies, notebooks, and job scheduler without touching data permissions.",
+    snippet: "databricks workspaces create \\\n  --name ws-hhs-eng \\\n  --region us-east-1",
   },
-  workspace: {
-    id: "workspace", level: "workspace", label: "Workspace", sublabel: "Compute & UX · Not a data boundary",
-    stroke: "#0ea5e9", fill: "#082f4950", textColor: "#7dd3fc",
-    definition: "A Databricks UI and API endpoint for running notebooks, jobs, clusters, and SQL warehouses. Workspaces attach to a metastore — they do NOT own data or permissions. Two users in different workspaces on the same metastore share the same catalog access rules.",
-    owner: "Workspace Admin", ownerNote: "Manages clusters, compute policies, and workspace-level settings. Cannot grant Unity Catalog data permissions — those live on the metastore.",
-    configChoices: ["Multiple workspaces per metastore (eng / BI / ML workspaces)", "Workspace isolation = compute + UX isolation, never data isolation", "Catalog binding: explicitly bind specific catalogs to a workspace to restrict which catalogs are visible in that workspace's UI", "All workspaces on one metastore share the same UC permission graph — binding limits visibility, not access rights"],
-    mistake: "Using workspace separation as a data isolation strategy.",
-    mistakeFix: "Two workspaces on the same metastore = same data visibility based on UC grants. Use catalog or schema grants to isolate data access. Workspace only controls what compute users can run.",
+  {
+    persona: "account-admin",
+    title: "Create a Metastore",
+    action: "Creates one metastore for the region. The metastore IS the data security perimeter — all catalogs, grants, lineage, and audit logs live here.",
+    why: "One metastore per region is the recommended default. Attaching it to all workspaces means every team shares the same catalog permission graph.",
+    snippet: "databricks metastores create \\\n  --name hhs-metastore-us-east \\\n  --storage-root s3://hhs-uc-root/",
   },
-  catalog: {
-    id: "catalog", level: "catalog", label: "Catalog", sublabel: "Namespace · Isolation Unit",
-    stroke: "#f59e0b", fill: "#3b270250", textColor: "#fcd34d",
-    definition: "The first-level namespace inside a metastore. Catalogs are the natural unit of environment isolation (dev / qa / prod) or domain isolation (sales / finance / hr). Permissions granted at the catalog level cascade down to all schemas and tables within.",
-    owner: "Catalog Owner (account group)", ownerNote: "Ideally an account-level group such as platform_admins. Catalog owners can grant on that catalog. Avoid individual users as owners.",
-    configChoices: ["Pattern A: one catalog per environment — dev, qa, prod", "Pattern B: one catalog per domain — medicaid, snap, chip", "Pattern C: hybrid — dev_medicaid, prod_medicaid, dev_snap, prod_snap", "Workspace binding: bind a catalog to specific workspaces so it only appears in those workspace UIs (does not change UC grants)"],
-    mistake: "One giant catalog containing everything.",
-    mistakeFix: "Without catalog separation a grant mistake affects all environments simultaneously. At minimum separate dev from prod. Prefer hybrid if you have multiple domains and teams.",
-    permExample: "GRANT USE CATALOG, USE SCHEMA ON CATALOG prod TO analysts;\nGRANT CREATE SCHEMA, CREATE TABLE ON CATALOG dev TO data_engineers;",
+  {
+    persona: "account-admin",
+    title: "Appoint a Metastore Admin",
+    action: "Grants the Metastore Admin role to the platform governance team and attaches the metastore to all workspaces.",
+    why: "Separating account admin (infrastructure) from metastore admin (data governance) enforces least-privilege. One person should not control both.",
+    snippet: "databricks metastores assign \\\n  --metastore-id <id> \\\n  --workspace-id <ws-id>",
   },
-  schema: {
-    id: "schema", level: "schema", label: "Schema", sublabel: "Table Grouping · Data Layer",
-    stroke: "#10b981", fill: "#05291650", textColor: "#6ee7b7",
-    definition: "The second-level namespace inside a catalog. Schemas group related tables and views. Commonly map to medallion layers (bronze / silver / gold) or team domains. Permissions cascade from schema to all tables within it.",
-    owner: "Schema Owner (team group)", ownerNote: "Typically the team that writes to the schema. Pipeline service principals own bronze; analytics teams own gold.",
-    configChoices: ["Layer pattern: bronze, silver, gold per catalog", "PII pattern: pii_raw (strict) and pii_masked (exposed via views)", "Team pattern: one schema per source system or agency"],
-    mistake: "Granting ALL PRIVILEGES on a schema to all data engineers.",
-    mistakeFix: "ALL PRIVILEGES lets users DROP tables and schemas. Grant CREATE TABLE + MODIFY to pipeline accounts, SELECT to analysts, MODIFY only to schema owners.",
-    permExample: "GRANT SELECT ON SCHEMA prod.gold TO analysts;\nGRANT MODIFY ON SCHEMA dev.bronze TO pipeline_svc;\nGRANT ALL PRIVILEGES ON SCHEMA dev.bronze TO data_engineers;",
+  {
+    persona: "metastore-admin",
+    title: "Create Storage Credential & External Location",
+    action: "Registers an IAM role (AWS) or managed identity (Azure) as a storage credential, then maps it to an S3/ADLS path as an external location.",
+    why: "UC vends short-lived credentials to clusters at query time. Clusters never hold long-lived cloud keys — all external table access flows through this credential.",
+    snippet: "CREATE STORAGE CREDENTIAL hhs_s3_cred\n  USING IAM_ROLE \'arn:aws:iam::123:role/uc-role\';\n\nCREATE EXTERNAL LOCATION hhs_data\n  URL \'s3://hhs-data/\'\n  WITH (STORAGE CREDENTIAL hhs_s3_cred);",
   },
-  table: {
-    id: "table", level: "table", label: "Table / View", sublabel: "Managed · External · View",
-    stroke: "#8b5cf6", fill: "#2e106550", textColor: "#c4b5fd",
-    definition: "Leaf objects in the hierarchy. Managed tables store data inside the metastore root. External tables point to storage you manage. Views can enforce column masks (mask SSN for non-admins) and row filters (filter by agency_id) without duplicating data.",
-    owner: "Table Owner (service principal or team group)", ownerNote: "The creator of the table. Can GRANT SELECT, MODIFY on it. Prefer service principal ownership for production tables.",
-    configChoices: ["Managed: data in metastore root, fully lifecycle-managed by UC", "External: data in your ADLS/S3 path, you manage lifecycle", "Dynamic view: column mask on PII fields + row filter on tenant_id"],
-    mistake: "Mixing PII and non-PII columns in the same table, then trying to mask per user at query time.",
-    mistakeFix: "Separate PII columns into pii_raw table. Expose a view in pii_masked schema that applies a column mask. Grant analysts only to the view — the underlying table is never directly accessible.",
-    permExample: "GRANT SELECT ON VIEW prod.gold.claims_clean TO medicaid_analysts;\n-- claims_clean applies: CASE WHEN is_member('phi_authorized') THEN ssn ELSE '***' END",
+  {
+    persona: "metastore-admin",
+    title: "Create Catalogs",
+    action: "Creates dev, qa, and prod catalogs — the first-level isolation boundary inside the metastore.",
+    why: "Catalog = environment. A DROP TABLE mistake in dev cannot reach prod because they are separate namespaces with independent grant graphs.",
+    snippet: "CREATE CATALOG dev;\nCREATE CATALOG qa;\nCREATE CATALOG prod;",
   },
-};
+  {
+    persona: "data-steward",
+    title: "Create Schemas — Medallion Layers",
+    action: "Creates bronze, silver, and gold schemas inside each catalog to reflect the medallion architecture.",
+    why: "Schemas are the grant granularity below catalog. Pipeline service principals own bronze; analytics teams own gold. Permissions cascade to all tables within.",
+    snippet: "CREATE SCHEMA prod.bronze;\nCREATE SCHEMA prod.silver;\nCREATE SCHEMA prod.gold;",
+  },
+  {
+    persona: "data-steward",
+    title: "Assign Account Groups via GRANT",
+    action: "Grants account-level groups access to catalogs and schemas. Only account-level groups are UC-native — workspace-local groups are invisible to GRANT statements.",
+    why: "GRANT statements are the only path to data access in UC. Account groups scale across every workspace without duplication.",
+    snippet: "GRANT USE CATALOG, USE SCHEMA ON CATALOG prod\n  TO data_engineers;\nGRANT SELECT ON SCHEMA prod.gold\n  TO medicaid_analysts;",
+  },
+  {
+    persona: "workspace-admin",
+    title: "Bind Catalogs to Workspaces",
+    action: "Binds specific catalogs to specific workspaces — controlling which catalogs appear in each workspace’s UI without changing any UC grants.",
+    why: "Binding is a visibility filter. An analyst workspace bound only to prod cannot accidentally browse dev tables, even if their grants technically allow it.",
+    snippet: "databricks catalogs update prod \\\n  --isolation-mode ISOLATED\ndatabricks workspace-bindings update \\\n  --catalog prod --workspace ws-hhs-bi",
+  },
+];
 
 // ─── Permission Matrix Data ───────────────────────────────────────────────────
 
@@ -170,266 +175,261 @@ const MATRIX_COLS = [
   { id: "prod.gold",   label: "prod.gold",    level: "schema" as const  },
 ];
 
-// ─── Hierarchy SVG ────────────────────────────────────────────────────────────
+// ─── Buildup SVG ─────────────────────────────────────────────────────────────
 
-type SelectedNode = keyof typeof NODES | null;
+function BuildupSVG({ step }: { step: number }) {
+  const v = (n: number) => step >= n ? 1 : 0;
+  const f = (n: number, base: number) => step >= n ? base : 0;
 
-function HierarchySVG({ selected, onSelect }: { selected: SelectedNode; onSelect: (id: SelectedNode) => void }) {
-  const ws = [
-    { id: "ws1", label: "ws-hhs-eng",  y: 190 },
-    { id: "ws2", label: "ws-hhs-bi",   y: 233 },
-    { id: "ws3", label: "ws-hhs-ml",   y: 276 },
+  const WS = [
+    { label: "ws-hhs-eng", cy: 92 },
+    { label: "ws-hhs-bi",  cy: 134 },
+    { label: "ws-hhs-ml",  cy: 176 },
   ];
-  const cats = [
-    { id: "cat-dev",  label: "dev",  cx: 345, dim: true  },
-    { id: "cat-qa",   label: "qa",   cx: 455, dim: true  },
-    { id: "cat-prod", label: "prod", cx: 565, dim: false },
+  const CATS = [
+    { label: "dev",  cx: 335, dim: true  },
+    { label: "qa",   cx: 425, dim: true  },
+    { label: "prod", cx: 505, dim: false },
   ];
-  // workspace-catalog bindings: [ws index, cat index]
-  const bindings: [number, number][] = [
-    [0, 0], [0, 1], [0, 2],  // eng → dev, qa, prod
-    [1, 2],                   // bi  → prod
-    [2, 0], [2, 2],           // ml  → dev, prod
+  const SCH = [
+    { label: "bronze", cx: 472 },
+    { label: "gold",   cx: 538 },
   ];
-  const nodeColor = (id: SelectedNode) => id === selected ? "2" : "1.2";
+  const BINDINGS: [number, number][] = [[0,0],[0,1],[0,2],[1,2],[2,0],[2,2]];
+
+  const t = (n: number) => `opacity ${n * 0.08 + 0.3}s`;
 
   return (
-    <svg viewBox="0 0 720 460" className="w-full h-full" style={{ fontFamily: "ui-monospace, monospace" }}>
-      {/* ── connectors ── */}
-      {/* Account → Metastore */}
-      <line x1="360" y1="52" x2="360" y2="90" stroke="#475569" strokeWidth="1.5" />
-      {/* Metastore → workspace branch */}
-      <line x1="255" y1="130" x2="108" y2="178" stroke="#0ea5e9" strokeWidth="1.2" strokeDasharray="5,4" opacity="0.5" />
-      {/* Workspace vertical bracket */}
-      <line x1="108" y1="178" x2="108" y2="291" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="3,3" opacity="0.4" />
-      {ws.map(w => <line key={w.id} x1="108" y1={w.y + 15} x2="132" y2={w.y + 15} stroke="#0ea5e9" strokeWidth="1" opacity="0.4" />)}
-      {/* Metastore → catalog bar */}
-      <line x1="465" y1="130" x2="565" y2="178" stroke="#f59e0b" strokeWidth="1.2" opacity="0.45" />
-      <line x1="345" y1="178" x2="565" y2="178" stroke="#f59e0b" strokeWidth="1" opacity="0.3" />
-      <line x1="345" y1="178" x2="345" y2="188" stroke="#f59e0b" strokeWidth="1" opacity="0.4" />
-      <line x1="455" y1="178" x2="455" y2="188" stroke="#f59e0b" strokeWidth="1" opacity="0.4" />
-      <line x1="565" y1="178" x2="565" y2="188" stroke="#f59e0b" strokeWidth="1.5" opacity="0.6" />
-      {/* prod → schemas */}
-      <line x1="565" y1="220" x2="565" y2="264" stroke="#10b981" strokeWidth="1" opacity="0.5" />
-      <line x1="520" y1="264" x2="620" y2="264" stroke="#10b981" strokeWidth="1" opacity="0.4" />
-      <line x1="520" y1="264" x2="520" y2="272" stroke="#10b981" strokeWidth="1" opacity="0.4" />
-      <line x1="620" y1="264" x2="620" y2="272" stroke="#10b981" strokeWidth="1" opacity="0.5" />
-      {/* gold → tables */}
-      <line x1="620" y1="300" x2="620" y2="340" stroke="#8b5cf6" strokeWidth="1" opacity="0.5" />
-      <line x1="588" y1="340" x2="652" y2="340" stroke="#8b5cf6" strokeWidth="1" opacity="0.35" />
-      <line x1="588" y1="340" x2="588" y2="346" stroke="#8b5cf6" strokeWidth="1" opacity="0.35" />
-      <line x1="652" y1="340" x2="652" y2="346" stroke="#8b5cf6" strokeWidth="1" opacity="0.35" />
-
-      {/* ── labels on connectors ── */}
-      <text x="78" y="160" fontSize="7" fill="#0ea5e9" opacity="0.6" textAnchor="middle">attached</text>
-      <text x="78" y="169" fontSize="7" fill="#0ea5e9" opacity="0.5" textAnchor="middle">(not owned)</text>
-      <text x="490" y="175" fontSize="7" fill="#f59e0b" opacity="0.55">owns →</text>
-
-      {/* ── Security boundary label ── */}
-      <rect x="216" y="88" width="288" height="46" rx="8" fill="none" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="1,0" opacity="0.25" />
-      <rect x="430" y="82" width="106" height="13" rx="3" fill="#1e1b4b" opacity="0.9" />
-      <text x="483" y="91" textAnchor="middle" fontSize="6.5" fill="#818cf8" fontWeight="700" opacity="0.9">DATA SECURITY BOUNDARY</text>
-
-      {/* ── Account node ── */}
-      <g onClick={() => onSelect(selected === "account" ? null : "account")} style={{ cursor: "pointer" }}>
-        {selected === "account" && <rect x="250" y="8" width="220" height="40" rx="10" fill="#64748b" opacity="0.15" filter="url(#hw15glow)" />}
-        <rect x="255" y="12" width="210" height="36" rx="7" fill="#0f172a" stroke={selected === "account" ? "#94a3b8" : "#475569"} strokeWidth={nodeColor("account")} />
-        <rect x="255" y="12" width="210" height="16" rx="7" fill="#475569" opacity="0.2" />
-        <rect x="255" y="20" width="210" height="8" fill="#475569" opacity="0.2" />
-        <text x="360" y="25" textAnchor="middle" fontSize="9" fontWeight="700" fill="#cbd5e1">Account</text>
-        <text x="360" y="39" textAnchor="middle" fontSize="7" fill="#94a3b8" opacity="0.6">Databricks Account · Identity Root</text>
-      </g>
-
-      {/* ── Metastore node ── */}
-      <g onClick={() => onSelect(selected === "metastore" ? null : "metastore")} style={{ cursor: "pointer" }}>
-        {selected === "metastore" && <rect x="248" y="87" width="224" height="48" rx="10" fill="#6366f1" opacity="0.12" filter="url(#hw15glow)" />}
-        <rect x="253" y="90" width="214" height="42" rx="8" fill="#1e1b4b" stroke={selected === "metastore" ? "#818cf8" : "#6366f1"} strokeWidth={nodeColor("metastore")} />
-        <rect x="253" y="90" width="214" height="17" rx="8" fill="#6366f1" opacity="0.2" />
-        <rect x="253" y="99" width="214" height="8" fill="#6366f1" opacity="0.2" />
-        <text x="360" y="103" textAnchor="middle" fontSize="9" fontWeight="700" fill="#a5b4fc">Metastore</text>
-        <text x="360" y="119" textAnchor="middle" fontSize="7" fill="#818cf8" opacity="0.7">Unity Catalog · hhs-metastore-us-east</text>
-      </g>
-
-      {/* ── Workspace nodes ── */}
-      {ws.map(w => (
-        <g key={w.id} onClick={() => onSelect(selected === "workspace" ? null : "workspace")} style={{ cursor: "pointer" }}>
-          {selected === "workspace" && <rect x="126" y={w.y - 4} width="163" height="38" rx="8" fill="#0ea5e9" opacity="0.08" />}
-          <rect x="130" y={w.y} width="155" height="30" rx="6" fill="#082f49" stroke={selected === "workspace" ? "#38bdf8" : "#0ea5e9"} strokeWidth={nodeColor("workspace")} opacity="0.9" />
-          <rect x="130" y={w.y} width="155" height="13" rx="6" fill="#0ea5e9" opacity="0.18" />
-          <rect x="130" y={w.y + 8} width="155" height="5" fill="#0ea5e9" opacity="0.18" />
-          <text x="207" y={w.y + 11} textAnchor="middle" fontSize="8" fontWeight="600" fill="#7dd3fc">{w.label}</text>
-          <text x="207" y={w.y + 24} textAnchor="middle" fontSize="6.5" fill="#38bdf8" opacity="0.55">Workspace</text>
-        </g>
-      ))}
-
-      {/* ── Catalog Binding lines ── */}
-      {bindings.map(([wi, ci], idx) => {
-        const wx = 285;
-        const wy = ws[wi].y + 15;
-        const cx2 = cats[ci].cx;
-        const cy2 = 218;
-        return (
-          <line key={idx}
-            x1={wx} y1={wy} x2={cx2} y2={cy2}
-            stroke="#06b6d4" strokeWidth="1" strokeDasharray="4,3" opacity={selected === "workspace" || selected === "catalog" ? 0.75 : 0.3}
-          />
-        );
-      })}
-      {/* Binding legend label */}
-      <text x="308" y="160" fontSize="7" fill="#06b6d4" opacity="0.6" textAnchor="middle">catalog</text>
-      <text x="308" y="169" fontSize="7" fill="#06b6d4" opacity="0.6" textAnchor="middle">binding</text>
-
-      {/* ── Catalog nodes ── */}
-      {cats.map(c => (
-        <g key={c.id} onClick={() => onSelect(selected === "catalog" ? null : "catalog")} style={{ cursor: "pointer" }}>
-          {selected === "catalog" && !c.dim && <rect x={c.cx - 53} y="184" width="106" height="38" rx="8" fill="#f59e0b" opacity="0.10" />}
-          <rect x={c.cx - 49} y="188" width="98" height="30" rx="6"
-            fill={c.dim ? "#1a0d00" : "#3b2702"}
-            stroke={selected === "catalog" && !c.dim ? "#fbbf24" : "#f59e0b"}
-            strokeWidth={!c.dim ? nodeColor("catalog") : "0.7"}
-            opacity={c.dim ? 0.45 : 0.95}
-          />
-          {!c.dim && <rect x={c.cx - 49} y="188" width="98" height="13" rx="6" fill="#f59e0b" opacity="0.2" />}
-          {!c.dim && <rect x={c.cx - 49} y="196" width="98" height="5" fill="#f59e0b" opacity="0.2" />}
-          <text x={c.cx} y={c.dim ? "208" : "200"} textAnchor="middle" fontSize="8" fontWeight={c.dim ? "500" : "700"} fill={c.dim ? "#78350f" : "#fcd34d"}>
-            {c.label}
-          </text>
-          {!c.dim && <text x={c.cx} y="214" textAnchor="middle" fontSize="6.5" fill="#f59e0b" opacity="0.6">Catalog</text>}
-        </g>
-      ))}
-
-      {/* ── Schema nodes ── */}
-      {[{ id: "sch1", label: "bronze", cx: 520 }, { id: "sch2", label: "gold", cx: 620 }].map(s => (
-        <g key={s.id} onClick={() => onSelect(selected === "schema" ? null : "schema")} style={{ cursor: "pointer" }}>
-          {selected === "schema" && s.label === "gold" && <rect x={s.cx - 49} y="268" width="98" height="36" rx="7" fill="#10b981" opacity="0.1" />}
-          <rect x={s.cx - 46} y="272" width="92" height="28" rx="5"
-            fill="#052916" stroke={selected === "schema" ? "#34d399" : "#10b981"}
-            strokeWidth={nodeColor("schema")} opacity="0.9"
-          />
-          <rect x={s.cx - 46} y="272" width="92" height="12" rx="5" fill="#10b981" opacity="0.18" />
-          <text x={s.cx} y="282" textAnchor="middle" fontSize="7.5" fontWeight="600" fill="#6ee7b7">{s.label}</text>
-          <text x={s.cx} y="294" textAnchor="middle" fontSize="6" fill="#34d399" opacity="0.55">Schema</text>
-        </g>
-      ))}
-
-      {/* ── Table/View nodes ── */}
-      {[
-        { id: "t1", label: "claims_final", sub: "managed table", cx: 588, y: 346 },
-        { id: "t2", label: "claims_clean", sub: "view + col mask", cx: 652, y: 346 },
-      ].map(t => (
-        <g key={t.id} onClick={() => onSelect(selected === "table" ? null : "table")} style={{ cursor: "pointer" }}>
-          <rect x={t.cx - 60} y={t.y} width="122" height="44" rx="5"
-            fill="#1a0a30" stroke={selected === "table" ? "#a78bfa" : "#7c3aed"}
-            strokeWidth={nodeColor("table")} opacity="0.9"
-          />
-          <rect x={t.cx - 60} y={t.y} width="122" height="12" rx="5" fill="#7c3aed" opacity="0.18" />
-          <text x={t.cx} y={t.y + 11} textAnchor="middle" fontSize="7" fontWeight="600" fill="#c4b5fd">{t.label}</text>
-          <text x={t.cx} y={t.y + 24} textAnchor="middle" fontSize="6" fill="#a78bfa" opacity="0.65">{t.sub}</text>
-          <text x={t.cx} y={t.y + 35} textAnchor="middle" fontSize="6" fill="#7c3aed" opacity="0.55">prod.gold.*</text>
-        </g>
-      ))}
-
-      {/* ── Click hint ── */}
-      <text x="360" y="450" textAnchor="middle" fontSize="7.5" fill="#334155">Click any object to see definition · owner · common mistakes</text>
-
+    <svg viewBox="0 0 580 340" className="w-full h-full" style={{ fontFamily: "ui-monospace, monospace" }}>
       <defs>
-        <filter id="hw15glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="bs-glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       </defs>
+
+      {/* ── Account (step 1) ── */}
+      <g style={{ opacity: v(1), transition: t(1) }}>
+        <rect x="190" y="10" width="200" height="36" rx="7" fill="#0f172a" stroke="#475569" strokeWidth="1.2" />
+        <rect x="190" y="10" width="200" height="14" rx="7" fill="#475569" opacity="0.2" />
+        <rect x="190" y="18" width="200" height="6" fill="#475569" opacity="0.2" />
+        <text x="290" y="23" textAnchor="middle" fontSize="9" fontWeight="700" fill="#cbd5e1">Account</text>
+        <text x="290" y="38" textAnchor="middle" fontSize="7" fill="#94a3b8" opacity="0.7">HHS Databricks Account · Identity Root</text>
+      </g>
+
+      {/* ── Workspaces (step 2) ── */}
+      <g style={{ opacity: v(2), transition: t(2) }}>
+        {WS.map((w, i) => (
+          <g key={i}>
+            <rect x="15" y={w.cy - 14} width="152" height="28" rx="6" fill="#082f49" stroke="#0ea5e9" strokeWidth="1.2" opacity="0.9" />
+            <rect x="15" y={w.cy - 14} width="152" height="12" rx="6" fill="#0ea5e9" opacity="0.18" />
+            <text x="91" y={w.cy - 2} textAnchor="middle" fontSize="8" fontWeight="600" fill="#7dd3fc">{w.label}</text>
+            <text x="91" y={w.cy + 10} textAnchor="middle" fontSize="6.5" fill="#38bdf8" opacity="0.55">Workspace</text>
+          </g>
+        ))}
+      </g>
+
+      {/* ── Account → Metastore line (step 3) ── */}
+      <line x1="290" y1="46" x2="290" y2="82" stroke="#6366f1" strokeWidth="1.2"
+        style={{ opacity: f(3, 0.5), transition: t(3) }} />
+
+      {/* ── Metastore (step 3) ── */}
+      <g style={{ opacity: v(3), transition: t(3) }}>
+        <rect x="184" y="78" width="212" height="42" rx="10" fill="none" stroke="#6366f1" strokeWidth="1" strokeDasharray="4,3" opacity="0.3" />
+        <rect x="188" y="82" width="204" height="38" rx="8" fill="#1e1b4b" stroke="#6366f1" strokeWidth="1.5" />
+        <rect x="188" y="82" width="204" height="15" rx="8" fill="#6366f1" opacity="0.2" />
+        <rect x="188" y="91" width="204" height="6" fill="#6366f1" opacity="0.2" />
+        <text x="290" y="95" textAnchor="middle" fontSize="9" fontWeight="700" fill="#a5b4fc">Metastore</text>
+        <text x="290" y="111" textAnchor="middle" fontSize="7" fill="#818cf8" opacity="0.7">hhs-metastore-us-east · Data Security Boundary</text>
+        <text x="188" y="77" fontSize="6" fill="#818cf8" opacity="0.5">DATA SECURITY BOUNDARY</text>
+      </g>
+
+      {/* ── Admin badge + workspace attach lines (step 4) ── */}
+      <g style={{ opacity: v(4), transition: t(4) }}>
+        <rect x="382" y="69" width="110" height="14" rx="4" fill="#312e81" stroke="#6366f1" strokeWidth="0.7" />
+        <text x="437" y="79" textAnchor="middle" fontSize="6.5" fill="#a5b4fc">Admin: platform_team</text>
+        {/* Fan lines from metastore left to workspaces */}
+        <line x1="188" y1="101" x2="170" y2="101" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="4,3" opacity="0.5" />
+        <line x1="170" y1="92"  x2="170" y2="176" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="3,3" opacity="0.4" />
+        {WS.map((w, i) => (
+          <line key={i} x1="167" y1={w.cy} x2="170" y2={w.cy} stroke="#0ea5e9" strokeWidth="1" opacity="0.4" />
+        ))}
+        <text x="73" y="68" textAnchor="middle" fontSize="7" fill="#0ea5e9" opacity="0.5">attached</text>
+        <text x="73" y="77" textAnchor="middle" fontSize="7" fill="#0ea5e9" opacity="0.4">(not owned)</text>
+      </g>
+
+      {/* ── Storage Credential (step 5) ── */}
+      <g style={{ opacity: v(5), transition: t(5) }}>
+        <line x1="238" y1="120" x2="238" y2="148" stroke="#10b981" strokeWidth="1" opacity="0.4" />
+        <rect x="188" y="148" width="100" height="26" rx="5" fill="#052916" stroke="#10b981" strokeWidth="1" />
+        <text x="238" y="160" textAnchor="middle" fontSize="7.5" fontWeight="600" fill="#6ee7b7">Storage Credential</text>
+        <text x="238" y="170" textAnchor="middle" fontSize="6" fill="#34d399" opacity="0.6">+ External Location</text>
+      </g>
+
+      {/* ── Metastore → Catalog connector (step 6) ── */}
+      <g style={{ opacity: f(6, 0.5), transition: t(6) }}>
+        <line x1="305" y1="120" x2="305" y2="142" stroke="#f59e0b" strokeWidth="1" />
+        <line x1="335" y1="142" x2="505" y2="142" stroke="#f59e0b" strokeWidth="1" opacity="0.6" />
+        {CATS.map(c => (
+          <line key={c.label} x1={c.cx} y1="142" x2={c.cx} y2="148" stroke="#f59e0b" strokeWidth="1" opacity="0.7" />
+        ))}
+      </g>
+
+      {/* ── Catalogs (step 6) ── */}
+      <g style={{ opacity: v(6), transition: t(6) }}>
+        {CATS.map(c => (
+          <g key={c.label}>
+            <rect x={c.cx - 49} y="148" width="98" height="32" rx="6"
+              fill={c.dim ? "#1a0d00" : "#3b2702"}
+              stroke={c.dim ? "#78350f" : "#f59e0b"}
+              strokeWidth={c.dim ? 0.8 : 1.5}
+              opacity={c.dim ? 0.5 : 0.95}
+            />
+            {!c.dim && <rect x={c.cx - 49} y="148" width="98" height="13" rx="6" fill="#f59e0b" opacity="0.2" />}
+            <text x={c.cx} y={c.dim ? 169 : 161} textAnchor="middle" fontSize="8"
+              fontWeight={c.dim ? 500 : 700} fill={c.dim ? "#78350f" : "#fcd34d"}>{c.label}</text>
+            {!c.dim && <text x={c.cx} y="174" textAnchor="middle" fontSize="6.5" fill="#f59e0b" opacity="0.6">Catalog</text>}
+          </g>
+        ))}
+      </g>
+
+      {/* ── prod → Schema connectors (step 7) ── */}
+      <g style={{ opacity: f(7, 0.45), transition: t(7) }}>
+        <line x1="505" y1="180" x2="505" y2="210" stroke="#10b981" strokeWidth="1" />
+        <line x1="472" y1="210" x2="538" y2="210" stroke="#10b981" strokeWidth="1" opacity="0.6" />
+        {SCH.map(s => (
+          <line key={s.label} x1={s.cx} y1="210" x2={s.cx} y2="216" stroke="#10b981" strokeWidth="1" opacity="0.6" />
+        ))}
+      </g>
+
+      {/* ── Schemas (step 7) ── */}
+      <g style={{ opacity: v(7), transition: t(7) }}>
+        {SCH.map(s => (
+          <g key={s.label}>
+            <rect x={s.cx - 42} y="216" width="84" height="26" rx="5" fill="#052916" stroke="#10b981" strokeWidth="1.2" opacity="0.9" />
+            <rect x={s.cx - 42} y="216" width="84" height="11" rx="5" fill="#10b981" opacity="0.18" />
+            <text x={s.cx} y="225" textAnchor="middle" fontSize="7.5" fontWeight="600" fill="#6ee7b7">{s.label}</text>
+            <text x={s.cx} y="237" textAnchor="middle" fontSize="6" fill="#34d399" opacity="0.55">Schema · prod</text>
+          </g>
+        ))}
+      </g>
+
+      {/* ── Groups + grant arrows (step 8) ── */}
+      <g style={{ opacity: v(8), transition: t(8) }}>
+        <text x="15" y="262" fontSize="7" fill="#6366f1" opacity="0.55">Account groups (UC-native)</text>
+        {[
+          { label: "data_engineers",    cy: 279, color: "#0ea5e9" },
+          { label: "medicaid_analysts", cy: 304, color: "#f59e0b" },
+        ].map(g => (
+          <g key={g.label}>
+            <rect x="15" y={g.cy - 11} width="136" height="22" rx="5"
+              fill="#0f172a" stroke={g.color} strokeWidth="1" opacity="0.85" />
+            <text x="83" y={g.cy + 4} textAnchor="middle" fontSize="7" fontWeight="600" fill={g.color}>{g.label}</text>
+            <line x1="151" y1={g.cy} x2="456" y2="170"
+              stroke={g.color} strokeWidth="1" strokeDasharray="5,3" opacity="0.4" />
+          </g>
+        ))}
+        <text x="290" y="256" textAnchor="middle" fontSize="7" fill="#6366f1" opacity="0.4">GRANT →</text>
+      </g>
+
+      {/* ── Catalog Binding lines (step 9) ── */}
+      <g style={{ opacity: v(9), transition: t(9) }}>
+        {BINDINGS.map(([wi, ci], idx) => (
+          <line key={idx}
+            x1="167" y1={WS[wi].cy}
+            x2={CATS[ci].cx} y2="180"
+            stroke="#06b6d4" strokeWidth="1.2" strokeDasharray="5,3" opacity="0.5"
+          />
+        ))}
+        <text x="173" y="118" fontSize="7" fill="#06b6d4" opacity="0.65">catalog</text>
+        <text x="173" y="128" fontSize="7" fill="#06b6d4" opacity="0.65">binding</text>
+      </g>
+
+      {/* ── Bottom hint ── */}
+      <text x="290" y="332" textAnchor="middle" fontSize="7" fill="#334155">
+        {step < 9 ? "advance to see each step build up →" : "✓ full picture assembled — every piece in place"}
+      </text>
     </svg>
   );
 }
 
 // ─── Hierarchy Tab ────────────────────────────────────────────────────────────
 
-const LEVEL_COLORS: Record<UCLevel, string> = {
-  account: "#64748b", metastore: "#6366f1", workspace: "#0ea5e9",
-  catalog: "#f59e0b", schema: "#10b981", table: "#8b5cf6",
-};
-
 function HierarchyTab() {
-  const [selected, setSelected] = useState<SelectedNode>("metastore");
-  const meta = selected ? NODES[selected] : null;
+  const [step, setStep] = useState(1);
+  const s = BUILDUP_STEPS[step - 1];
+  const persona = PERSONAS[s.persona];
+  const total = BUILDUP_STEPS.length;
 
   return (
-    <div className="h-full flex gap-4">
-      {/* Diagram */}
-      <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 overflow-hidden p-2 min-h-0">
-        <HierarchySVG selected={selected} onSelect={setSelected} />
-      </div>
-
-      {/* Detail panel */}
-      <div className="w-[280px] flex flex-col gap-3 shrink-0 overflow-y-auto">
-        {/* Level legend */}
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-1.5 shrink-0">
-          <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest mb-2">Object Levels</p>
-          {(["account","metastore","workspace","catalog","schema","table"] as UCLevel[]).map(lvl => (
-            <button
-              key={lvl}
-              onClick={() => setSelected(lvl === selected ? null : lvl as SelectedNode)}
-              className={`w-full flex items-center gap-2 text-left py-0.5 px-1 rounded transition-colors ${selected === lvl ? "bg-slate-800/60" : "hover:bg-slate-800/30"}`}
-            >
-              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: LEVEL_COLORS[lvl] }} />
-              <span className="text-[12px] capitalize" style={{ color: LEVEL_COLORS[lvl] }}>{lvl}</span>
-            </button>
+    <div className="h-full flex flex-col gap-3">
+      {/* Step nav */}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => setStep(p => Math.max(1, p - 1))}
+          disabled={step === 1}
+          className="rounded-lg border border-slate-700 px-3 py-1 text-[12px] text-slate-400 hover:text-slate-200 hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >&#8592; Prev</button>
+        <span className="text-[12px] text-slate-600 px-1">Step {step} of {total}</span>
+        <button
+          onClick={() => setStep(p => Math.min(total, p + 1))}
+          disabled={step === total}
+          className="rounded-lg border border-slate-700 px-3 py-1 text-[12px] text-slate-400 hover:text-slate-200 hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >Next &#8594;</button>
+        <div className="flex gap-1.5 ml-3">
+          {Array.from({ length: total }, (_, i) => (
+            <button key={i} onClick={() => setStep(i + 1)}
+              className="w-2 h-2 rounded-full transition-all"
+              style={{ background: step === i + 1 ? persona.color : step > i + 1 ? persona.color + "55" : "#1e293b" }}
+            />
           ))}
         </div>
+      </div>
 
-        {/* Node detail */}
-        <AnimatePresence mode="wait">
-          {meta && (
-            <motion.div
-              key={selected}
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
-              className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-3 overflow-y-auto"
+      {/* Main area */}
+      <div className="flex gap-4 flex-1 min-h-0">
+        {/* Left: persona + action card */}
+        <div className="w-[248px] shrink-0 flex flex-col gap-3 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            <motion.div key={step}
+              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}
+              className="flex flex-col gap-3"
             >
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: meta.stroke }} />
-                  <p className="text-sm font-bold text-white">{meta.label}</p>
+              {/* Persona badge */}
+              <div className="rounded-xl border p-3 space-y-1"
+                style={{ borderColor: persona.color + "60", background: persona.color + "12" }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: persona.color }} />
+                  <p className="text-[13px] font-bold" style={{ color: persona.color }}>{persona.label}</p>
                 </div>
-                <p className="text-[12px] pl-4" style={{ color: meta.stroke }}>{meta.sublabel}</p>
+                <p className="text-[11px] pl-[18px] font-medium" style={{ color: persona.color, opacity: 0.6 }}>{persona.scope}</p>
               </div>
-              <p className="text-[13px] text-slate-400 leading-relaxed">{meta.definition}</p>
-              <div className="space-y-1">
-                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">Owner</p>
-                <p className="text-[13px] text-slate-300 font-semibold">{meta.owner}</p>
-                <p className="text-[12px] text-slate-500 leading-relaxed">{meta.ownerNote}</p>
+
+              {/* Title + action */}
+              <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-2">
+                <p className="text-[13px] font-bold text-white leading-snug">{s.title}</p>
+                <p className="text-[12px] text-slate-400 leading-relaxed">{s.action}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">Design Choices</p>
-                {meta.configChoices.map((c, i) => (
-                  <div key={i} className="flex items-start gap-1.5">
-                    <ChevronRight className="w-3 h-3 text-slate-600 shrink-0 mt-0.5" />
-                    <span className="text-[12px] text-slate-400 leading-relaxed">{c}</span>
-                  </div>
-                ))}
+
+              {/* Why it matters */}
+              <div className="rounded-xl border border-indigo-900/40 bg-indigo-950/15 p-3 space-y-1">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Why it matters</p>
+                <p className="text-[12px] text-slate-400 leading-relaxed">{s.why}</p>
               </div>
-              <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-2.5 space-y-1.5">
-                <div className="flex items-center gap-1.5">
-                  <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
-                  <p className="text-[11px] font-bold text-red-400 uppercase tracking-widest">Common Mistake</p>
-                </div>
-                <p className="text-[12px] text-red-300 leading-relaxed">{meta.mistake}</p>
-                <p className="text-[12px] text-slate-400 leading-relaxed">{meta.mistakeFix}</p>
-              </div>
-              {meta.permExample && (
-                <div className="rounded-lg bg-slate-900/60 border border-slate-700/50 p-2">
-                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">Example SQL</p>
-                  <pre className="text-[11px] text-emerald-400 leading-relaxed whitespace-pre-wrap">{meta.permExample}</pre>
+
+              {/* CLI / SQL snippet */}
+              {s.snippet && (
+                <div className="rounded-xl bg-slate-900/60 border border-slate-700/40 p-2.5">
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">CLI / SQL</p>
+                  <pre className="text-[10px] text-emerald-400 leading-relaxed whitespace-pre-wrap">{s.snippet}</pre>
                 </div>
               )}
             </motion.div>
-          )}
-          {!meta && (
-            <motion.div
-              key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="flex-1 rounded-xl border border-slate-800/40 bg-slate-900/20 flex items-center justify-center"
-            >
-              <p className="text-[13px] text-slate-600 text-center px-4">Click any object in the diagram to explore its role in the hierarchy.</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
+
+        {/* Right: progressive SVG */}
+        <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/20 overflow-hidden p-2 min-h-0">
+          <BuildupSVG step={step} />
+        </div>
       </div>
     </div>
   );
