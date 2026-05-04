@@ -5,7 +5,6 @@ import { CheckCircle, AlertTriangle, Users, ChevronRight, Database, Shield } fro
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type UCLevel = "account" | "metastore" | "workspace" | "catalog" | "schema" | "table";
-type MetastoreMode = "single" | "multi";
 type CatalogMode = "env" | "domain" | "hybrid";
 type UCTab = "hierarchy" | "environments" | "groups" | "workspaces";
 
@@ -416,7 +415,6 @@ function HierarchyTab() {
 // ─── Environments Tab ─────────────────────────────────────────────────────────
 
 function EnvironmentsTab() {
-  const [msMode, setMsMode] = useState<MetastoreMode>("single");
   const [catMode, setCatMode] = useState<CatalogMode>("env");
 
   const catLabels: Record<CatalogMode, { catalogs: string[]; note: string }> = {
@@ -427,20 +425,8 @@ function EnvironmentsTab() {
 
   const { catalogs, note } = catLabels[catMode];
 
-  const PROS_CONS = {
-    single: {
-      pros: ["Single governance surface — one set of grants to manage", "Cross-environment lineage works (dev → prod table history)", "Catalog ownership structure is simple", "Adding a new environment = adding a new catalog"],
-      cons: ["Metastore admin mistake affects all environments", "No hard regulatory wall between dev and prod data", "A dropped metastore drops everything"],
-      when: "Standard enterprise Lakehouse. No regulatory requirement to physically air-gap dev from production PII.",
-    },
-    multi: {
-      pros: ["Hard regulatory boundary — separate audit logs per metastore", "Separate metastore admins (regulated vs non-regulated)", "Physical air-gap: dev never touches prod PII", "Separate storage roots per compliance tier"],
-      cons: ["No cross-metastore lineage", "Data must be physically copied to cross boundaries", "Two sets of metastore configs and admins to maintain", "More complex Identity setup"],
-      when: "FedRAMP High, HIPAA strict air-gap, or legal requirement to separate PHI from non-PHI with independent audit trails.",
-    },
-  };
-
-  const pc = PROS_CONS[msMode];
+  const PROS = ["Single governance surface — one set of grants to manage", "Cross-environment lineage works (dev → prod table history)", "Catalog ownership structure is simple", "Adding a new environment = adding a new catalog"];
+  const CONS = ["Metastore admin mistake affects all environments", "No hard regulatory wall between dev and prod data"];
 
   const catColor: Record<string, { stroke: string; text: string; bg: string }> = {
     dev: { stroke: "#0ea5e9", text: "#7dd3fc", bg: "#082f4940" },
@@ -460,15 +446,6 @@ function EnvironmentsTab() {
       {/* Toggles */}
       <div className="flex gap-3 flex-wrap shrink-0">
         <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-2 flex items-center gap-2">
-          <span className="text-[12px] text-slate-500 font-semibold shrink-0">Metastores:</span>
-          {(["single","multi"] as MetastoreMode[]).map(m => (
-            <button key={m} onClick={() => setMsMode(m)}
-              className={`text-[12px] px-3 py-1 rounded-lg border font-semibold transition-colors ${msMode === m ? "bg-indigo-900/50 text-indigo-300 border-indigo-700" : "text-slate-500 border-slate-700 hover:text-slate-300"}`}>
-              {m === "single" ? "1 Metastore" : "Multi-Metastore"}
-            </button>
-          ))}
-        </div>
-        <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-2 flex items-center gap-2">
           <span className="text-[12px] text-slate-500 font-semibold shrink-0">Catalog strategy:</span>
           {(["env","domain","hybrid"] as CatalogMode[]).map(m => (
             <button key={m} onClick={() => setCatMode(m)}
@@ -483,81 +460,48 @@ function EnvironmentsTab() {
         {/* Diagram */}
         <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-4 overflow-y-auto space-y-4">
           <AnimatePresence mode="wait">
-            <motion.div key={`${msMode}-${catMode}`}
+            <motion.div key={catMode}
               initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}
               className="space-y-4"
             >
-              {msMode === "single" ? (
-                <div className="space-y-3">
-                  {/* Account */}
-                  <div className="flex justify-center">
-                    <div className="rounded-lg border border-slate-600/50 bg-slate-800/40 px-6 py-2 text-center">
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Account</p>
-                      <p className="text-[12px] text-slate-300 font-semibold">HHS Databricks Account</p>
-                    </div>
+              <div className="space-y-3">
+                {/* Account */}
+                <div className="flex justify-center">
+                  <div className="rounded-lg border border-slate-600/50 bg-slate-800/40 px-6 py-2 text-center">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Account</p>
+                    <p className="text-[12px] text-slate-300 font-semibold">HHS Databricks Account</p>
                   </div>
-                  <div className="flex justify-center"><div className="w-px h-4 bg-indigo-700/50" /></div>
-                  {/* Single metastore */}
-                  <div className="flex justify-center">
-                    <div className="rounded-xl border-2 border-indigo-600/60 bg-indigo-950/30 px-8 py-3 text-center min-w-[280px]">
-                      <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Metastore · Data Security Boundary</p>
-                      <p className="text-[13px] text-indigo-300 font-bold mt-0.5">hhs-metastore-us-east</p>
-                      <div className="mt-3 flex gap-2 justify-center flex-wrap">
-                        {catalogs.map(cat => {
-                          const c = catColor[cat] ?? { stroke: "#6366f1", text: "#a5b4fc", bg: "#1e1b4b40" };
-                          return (
-                            <div key={cat} className="rounded-lg border px-3 py-2 text-center min-w-[80px]"
-                              style={{ borderColor: c.stroke + "80", background: c.bg }}>
-                              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.stroke }}>Catalog</p>
-                              <p className="text-[12px] font-bold mt-0.5" style={{ color: c.text }}>{cat}</p>
-                              <div className="mt-1.5 space-y-0.5">
-                                {["bronze","silver","gold"].map(s => (
-                                  <div key={s} className="text-[9px] rounded px-1.5 py-0.5 border text-center"
-                                    style={{ color: "#10b981", borderColor: "#10b98130", background: "#05291620" }}>
-                                    {s}
-                                  </div>
-                                ))}
-                              </div>
+                </div>
+                <div className="flex justify-center"><div className="w-px h-4 bg-indigo-700/50" /></div>
+                {/* Metastore */}
+                <div className="flex justify-center">
+                  <div className="rounded-xl border-2 border-indigo-600/60 bg-indigo-950/30 px-8 py-3 text-center min-w-[280px]">
+                    <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Metastore · Data Security Boundary</p>
+                    <p className="text-[13px] text-indigo-300 font-bold mt-0.5">hhs-metastore-us-east</p>
+                    <div className="mt-3 flex gap-2 justify-center flex-wrap">
+                      {catalogs.map(cat => {
+                        const c = catColor[cat] ?? { stroke: "#6366f1", text: "#a5b4fc", bg: "#1e1b4b40" };
+                        return (
+                          <div key={cat} className="rounded-lg border px-3 py-2 text-center min-w-[80px]"
+                            style={{ borderColor: c.stroke + "80", background: c.bg }}>
+                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: c.stroke }}>Catalog</p>
+                            <p className="text-[12px] font-bold mt-0.5" style={{ color: c.text }}>{cat}</p>
+                            <div className="mt-1.5 space-y-0.5">
+                              {["bronze","silver","gold"].map(s => (
+                                <div key={s} className="text-[9px] rounded px-1.5 py-0.5 border text-center"
+                                  style={{ color: "#10b981", borderColor: "#10b98130", background: "#05291620" }}>
+                                  {s}
+                                </div>
+                              ))}
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex justify-center">
-                    <div className="rounded-lg border border-slate-600/50 bg-slate-800/40 px-6 py-2 text-center">
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Account</p>
-                      <p className="text-[12px] text-slate-300 font-semibold">HHS Databricks Account</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 justify-center">
-                    <div className="flex-1 rounded-xl border-2 border-red-700/50 bg-red-950/20 p-3">
-                      <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Metastore · Regulated</p>
-                      <p className="text-[12px] text-red-300 font-bold">hhs-ms-fedramp</p>
-                      <p className="text-[10px] text-red-400/60 mb-2">PHI · FedRAMP boundary</p>
-                      <div className="space-y-1.5">
-                        {["prod_phi","prod_non_phi"].map(c => (
-                          <div key={c} className="rounded border border-red-800/40 bg-red-900/10 px-2 py-1 text-[11px] text-red-300">{c}</div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex-1 rounded-xl border-2 border-sky-700/50 bg-sky-950/20 p-3">
-                      <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1">Metastore · Non-Regulated</p>
-                      <p className="text-[12px] text-sky-300 font-bold">hhs-ms-dev</p>
-                      <p className="text-[10px] text-sky-400/60 mb-2">Non-PHI · Dev / QA work</p>
-                      <div className="space-y-1.5">
-                        {["dev","qa","sandbox"].map(c => (
-                          <div key={c} className="rounded border border-sky-800/40 bg-sky-900/10 px-2 py-1 text-[11px] text-sky-300">{c}</div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              </div>
 
               {/* Catalog strategy note */}
               <div className="rounded-lg border border-amber-800/30 bg-amber-950/15 px-3 py-2">
@@ -569,36 +513,28 @@ function EnvironmentsTab() {
 
         {/* Pros/cons panel */}
         <div className="w-[260px] shrink-0 flex flex-col gap-3 overflow-y-auto">
-          <AnimatePresence mode="wait">
-            <motion.div key={msMode}
-              initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.2 }}
-              className="space-y-3"
-            >
-              <div className="rounded-xl border border-emerald-800/40 bg-emerald-950/20 p-3 space-y-1.5">
-                <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest">Pros</p>
-                {pc.pros.map((p, i) => (
-                  <div key={i} className="flex items-start gap-1.5">
-                    <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
-                    <span className="text-[12px] text-slate-400 leading-relaxed">{p}</span>
-                  </div>
-                ))}
+          <div className="rounded-xl border border-emerald-800/40 bg-emerald-950/20 p-3 space-y-1.5">
+            <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest">Pros</p>
+            {PROS.map((p, i) => (
+              <div key={i} className="flex items-start gap-1.5">
+                <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
+                <span className="text-[12px] text-slate-400 leading-relaxed">{p}</span>
               </div>
-              <div className="rounded-xl border border-red-900/40 bg-red-950/15 p-3 space-y-1.5">
-                <p className="text-[11px] font-bold text-red-500 uppercase tracking-widest">Cons</p>
-                {pc.cons.map((c, i) => (
-                  <div key={i} className="flex items-start gap-1.5">
-                    <AlertTriangle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
-                    <span className="text-[12px] text-slate-400 leading-relaxed">{c}</span>
-                  </div>
-                ))}
+            ))}
+          </div>
+          <div className="rounded-xl border border-red-900/40 bg-red-950/15 p-3 space-y-1.5">
+            <p className="text-[11px] font-bold text-red-500 uppercase tracking-widest">Cons</p>
+            {CONS.map((c, i) => (
+              <div key={i} className="flex items-start gap-1.5">
+                <AlertTriangle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
+                <span className="text-[12px] text-slate-400 leading-relaxed">{c}</span>
               </div>
-              <div className="rounded-xl border border-indigo-800/40 bg-indigo-950/20 p-3">
-                <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">When to use</p>
-                <p className="text-[12px] text-slate-400 leading-relaxed">{pc.when}</p>
-              </div>
-            </motion.div>
-          </AnimatePresence>
+            ))}
+          </div>
+          <div className="rounded-xl border border-indigo-800/40 bg-indigo-950/20 p-3">
+            <p className="text-[11px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5">When to use</p>
+            <p className="text-[12px] text-slate-400 leading-relaxed">Standard enterprise Lakehouse. Catalogs provide sufficient isolation for environments and domains without the operational overhead of multiple metastores.</p>
+          </div>
         </div>
       </div>
     </div>
