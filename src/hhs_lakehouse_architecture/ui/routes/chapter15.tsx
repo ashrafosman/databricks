@@ -181,35 +181,30 @@ function BuildupSVG({ step }: { step: number }) {
   const v  = (n: number) => step >= n ? 1 : 0;
   const fv = (n: number, base = 0.5) => step >= n ? base : 0;
 
+  // Catalog spacing: width=88, gap=20 between boxes
+  // dev(300-388) · qa(408-496) · prod(516-604) — no overlap, 20px gaps
+  const CATS = [
+    { label: "dev",  cx: 344, dim: true,  binds: "eng · ml"     },
+    { label: "qa",   cx: 452, dim: true,  binds: "eng"           },
+    { label: "prod", cx: 560, dim: false, binds: "eng · bi · ml" },
+  ];
+  const CAT_W = 88, CAT_H = 32, CAT_Y = 152;
+
+  // Schema: width=60, 10px gap → bronze(485-545) · gold(555-615)
+  const SCH = [
+    { label: "bronze", cx: 515 },
+    { label: "gold",   cx: 585 },
+  ];
+  const SCH_W = 60, SCH_H = 26, SCH_Y = 214;
+
   const WS = [
     { label: "ws-hhs-eng", cy: 93  },
     { label: "ws-hhs-bi",  cy: 137 },
     { label: "ws-hhs-ml",  cy: 181 },
   ];
-  // Catalogs are to the RIGHT of metastore, storage cred is BELOW metastore LEFT side
-  // so they never overlap
-  const CATS = [
-    { label: "dev",  cx: 370, dim: true,  binds: "eng · ml"      },
-    { label: "qa",   cx: 470, dim: true,  binds: "eng"            },
-    { label: "prod", cx: 554, dim: false, binds: "eng · bi · ml"  },
-  ];
-  const SCH = [
-    { label: "bronze", cx: 515 },
-    { label: "gold",   cx: 578 },
-  ];
-
-  // Zone layout (no shared y-band between elements in different x-columns)
-  // y=10-48:   Account
-  // y=74-118:  Metastore   |   Workspaces x=15-165 share this band (diff x) ✓
-  // y=158-186: StorageCred (x=182-292, left of catalogs x=321+)
-  // y=152-186: Catalogs    (x=321-603, right of storage cred) ✓ no x-overlap
-  // y=193:     Binding text (below catalog bottom, above schema top)
-  // y=214-242: Schemas     (below binding text gap)
-  // y=260-326: Groups      (below schemas)
-  // y=352:     Hint
 
   return (
-    <svg viewBox="0 0 620 360" className="w-full h-full" style={{ fontFamily: "ui-monospace, monospace" }}>
+    <svg viewBox="0 0 630 360" className="w-full h-full" style={{ fontFamily: "ui-monospace, monospace" }}>
       <defs>
         <filter id="bs-glow">
           <feGaussianBlur stdDeviation="3" result="b"/>
@@ -221,19 +216,19 @@ function BuildupSVG({ step }: { step: number }) {
       <g style={{ opacity: v(1), transition: "opacity 0.4s" }}>
         <rect x="210" y="10" width="200" height="38" rx="7" fill="#0f172a" stroke="#475569" strokeWidth="1.2" />
         <rect x="210" y="10" width="200" height="15" rx="7" fill="#475569" opacity="0.2" />
-        <rect x="210" y="20" width="200" height="6"  fill="#475569" opacity="0.2" />
+        <rect x="210" y="20" width="200" height="6" fill="#475569" opacity="0.2" />
         <text x="310" y="25" textAnchor="middle" fontSize="9" fontWeight="700" fill="#cbd5e1">Account</text>
-        <text x="310" y="40" textAnchor="middle" fontSize="7"  fill="#94a3b8" opacity="0.7">HHS Databricks Account · Identity Root</text>
+        <text x="310" y="40" textAnchor="middle" fontSize="7" fill="#94a3b8" opacity="0.7">HHS Databricks Account · Identity Root</text>
       </g>
 
-      {/* ─── Workspaces (step 2) — x=15-165, y=78-196 ─── */}
+      {/* ─── Workspaces (step 2) — x=15-165, left column ─── */}
       <g style={{ opacity: v(2), transition: "opacity 0.4s" }}>
         {WS.map((w, i) => (
           <g key={i}>
-            <rect x="15" y={w.cy - 15} width="150" height="30" rx="6"
+            <rect x="15" y={w.cy - 14} width="150" height="28" rx="6"
               fill="#082f49" stroke="#0ea5e9" strokeWidth="1.2" opacity="0.9" />
-            <rect x="15" y={w.cy - 15} width="150" height="12" rx="6" fill="#0ea5e9" opacity="0.18" />
-            <text x="90" y={w.cy - 2}  textAnchor="middle" fontSize="8"   fontWeight="600" fill="#7dd3fc">{w.label}</text>
+            <rect x="15" y={w.cy - 14} width="150" height="12" rx="6" fill="#0ea5e9" opacity="0.18" />
+            <text x="90" y={w.cy - 1} textAnchor="middle" fontSize="8" fontWeight="600" fill="#7dd3fc">{w.label}</text>
             <text x="90" y={w.cy + 11} textAnchor="middle" fontSize="6.5" fill="#38bdf8" opacity="0.55">Workspace</text>
           </g>
         ))}
@@ -244,129 +239,119 @@ function BuildupSVG({ step }: { step: number }) {
         stroke="#6366f1" strokeWidth="1.2"
         style={{ opacity: fv(3), transition: "opacity 0.4s" }} />
 
-      {/* ─── Metastore (step 3) — x=188-432, y=74-118 ─── */}
+      {/* ─── Metastore (step 3) — x=208-412, y=74-118 ─── */}
       <g style={{ opacity: v(3), transition: "opacity 0.4s" }}>
-        <rect x="184" y="70" width="252" height="52" rx="10"
-          fill="none" stroke="#6366f1" strokeWidth="1" strokeDasharray="4,3" opacity="0.22" />
-        <rect x="188" y="74" width="244" height="44" rx="8"
+        <rect x="204" y="70" width="212" height="52" rx="10"
+          fill="none" stroke="#6366f1" strokeWidth="1" strokeDasharray="4,3" opacity="0.2" />
+        <rect x="208" y="74" width="204" height="44" rx="8"
           fill="#1e1b4b" stroke="#6366f1" strokeWidth="1.5" />
-        <rect x="188" y="74" width="244" height="18" rx="8" fill="#6366f1" opacity="0.22" />
-        <text x="310" y="89"  textAnchor="middle" fontSize="9" fontWeight="700" fill="#a5b4fc">Metastore</text>
+        <rect x="208" y="74" width="204" height="18" rx="8" fill="#6366f1" opacity="0.22" />
+        <text x="310" y="89" textAnchor="middle" fontSize="9" fontWeight="700" fill="#a5b4fc">Metastore</text>
         <text x="310" y="108" textAnchor="middle" fontSize="7" fill="#818cf8" opacity="0.65">hhs-metastore-us-east · Data Security Boundary</text>
-        <text x="191" y="68"  fontSize="5.5" fill="#6366f1" opacity="0.4" letterSpacing="1">DATA SECURITY BOUNDARY</text>
+        <text x="211" y="69" fontSize="5.5" fill="#6366f1" opacity="0.4" letterSpacing="1">DATA SECURITY BOUNDARY</text>
       </g>
 
-      {/* ─── Admin badge + workspace attach lines (step 4) ─── */}
+      {/* ─── Admin badge + ws attach lines (step 4) ─── */}
       <g style={{ opacity: v(4), transition: "opacity 0.4s" }}>
-        {/* Badge sits above metastore right corner, no overlap */}
-        <rect x="340" y="61" width="108" height="14" rx="4" fill="#312e81" stroke="#6366f1" strokeWidth="0.8" />
-        <text x="394" y="71" textAnchor="middle" fontSize="6.5" fill="#a5b4fc">Admin: platform_team</text>
-        {/* Bracket: metastore-left → x=170 bracket → workspace right edges */}
-        <line x1="188" y1="96" x2="171" y2="96"
-          stroke="#0ea5e9" strokeWidth="1" strokeDasharray="4,3" opacity="0.5" />
-        <line x1="171" y1="93" x2="171" y2="181"
-          stroke="#0ea5e9" strokeWidth="1" strokeDasharray="3,3" opacity="0.4" />
+        <rect x="330" y="61" width="108" height="14" rx="4" fill="#312e81" stroke="#6366f1" strokeWidth="0.8" />
+        <text x="384" y="71" textAnchor="middle" fontSize="6.5" fill="#a5b4fc">Admin: platform_team</text>
+        <line x1="208" y1="96" x2="171" y2="96" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="4,3" opacity="0.5" />
+        <line x1="171" y1="93" x2="171" y2="181" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="3,3" opacity="0.4" />
         {WS.map((w, i) => (
-          <line key={i} x1="165" y1={w.cy} x2="171" y2={w.cy}
-            stroke="#0ea5e9" strokeWidth="1" opacity="0.45" />
+          <line key={i} x1="165" y1={w.cy} x2="171" y2={w.cy} stroke="#0ea5e9" strokeWidth="1" opacity="0.45" />
         ))}
         <text x="83" y="65" textAnchor="middle" fontSize="6.5" fill="#0ea5e9" opacity="0.5">attached</text>
-        <text x="83" y="73" textAnchor="middle" fontSize="6.5" fill="#0ea5e9" opacity="0.4">(not owned)</text>
+        <text x="83" y="74" textAnchor="middle" fontSize="6.5" fill="#0ea5e9" opacity="0.4">(not owned)</text>
       </g>
 
-      {/* ─── Storage Credential (step 5) — x=182-292, y=158-186 ─── */}
-      {/* Sits to the LEFT of catalogs (x=321+) — zero x-overlap */}
+      {/* ─── Storage Credential (step 5) — x=182-292, right edge=292, dev left=300 → 8px gap ─── */}
       <g style={{ opacity: v(5), transition: "opacity 0.4s" }}>
-        <line x1="232" y1="118" x2="232" y2="158"
-          stroke="#10b981" strokeWidth="1" opacity="0.4" />
-        <rect x="182" y="158" width="110" height="28" rx="5"
-          fill="#052916" stroke="#10b981" strokeWidth="1.1" />
-        <text x="237" y="171" textAnchor="middle" fontSize="7.5" fontWeight="600" fill="#6ee7b7">Storage Credential</text>
-        <text x="237" y="181" textAnchor="middle" fontSize="6"   fill="#34d399" opacity="0.6">+ External Location</text>
+        <line x1="232" y1="118" x2="232" y2="156" stroke="#10b981" strokeWidth="1" opacity="0.4" />
+        <rect x="182" y="156" width="110" height="26" rx="5" fill="#052916" stroke="#10b981" strokeWidth="1.1" />
+        <text x="237" y="168" textAnchor="middle" fontSize="7.5" fontWeight="600" fill="#6ee7b7">Storage Credential</text>
+        <text x="237" y="178" textAnchor="middle" fontSize="6" fill="#34d399" opacity="0.6">+ External Location</text>
       </g>
 
-      {/* ─── Metastore → catalog connector (step 6) — bar at y=148, above catalogs ─── */}
+      {/* ─── Metastore → catalog connector bar at y=146 (step 6) ─── */}
       <g style={{ opacity: fv(6, 0.5), transition: "opacity 0.4s" }}>
-        <line x1="355" y1="118" x2="355" y2="148" stroke="#f59e0b" strokeWidth="1" />
-        <line x1="370" y1="148" x2="554" y2="148" stroke="#f59e0b" strokeWidth="1" opacity="0.65" />
+        <line x1="370" y1="118" x2="370" y2="146" stroke="#f59e0b" strokeWidth="1" />
+        <line x1={CATS[0].cx} y1="146" x2={CATS[2].cx} y2="146" stroke="#f59e0b" strokeWidth="1" opacity="0.65" />
         {CATS.map(c => (
-          <line key={c.label} x1={c.cx} y1="148" x2={c.cx} y2="152"
+          <line key={c.label} x1={c.cx} y1="146" x2={c.cx} y2={CAT_Y}
             stroke="#f59e0b" strokeWidth="1" opacity="0.7" />
         ))}
       </g>
 
-      {/* ─── Catalogs (step 6) — x=321-603, y=152-186 ─── */}
+      {/* ─── Catalogs (step 6) — 88px wide, 20px gaps, no overlap ─── */}
       <g style={{ opacity: v(6), transition: "opacity 0.4s" }}>
         {CATS.map(c => (
           <g key={c.label}>
-            <rect x={c.cx - 49} y="152" width="98" height="34" rx="6"
+            <rect x={c.cx - CAT_W/2} y={CAT_Y} width={CAT_W} height={CAT_H} rx="6"
               fill={c.dim ? "#1a0d00" : "#3b2702"}
               stroke={c.dim ? "#78350f" : "#f59e0b"}
               strokeWidth={c.dim ? 0.8 : 1.5}
               opacity={c.dim ? 0.5 : 0.95}
             />
-            {!c.dim && <rect x={c.cx - 49} y="152" width="98" height="14" rx="6" fill="#f59e0b" opacity="0.2" />}
-            <text x={c.cx} y={c.dim ? 173 : 163} textAnchor="middle"
+            {!c.dim && <rect x={c.cx - CAT_W/2} y={CAT_Y} width={CAT_W} height="13" rx="6" fill="#f59e0b" opacity="0.2" />}
+            <text x={c.cx} y={c.dim ? CAT_Y + 19 : CAT_Y + 11} textAnchor="middle"
               fontSize={c.dim ? 7.5 : 8} fontWeight={c.dim ? 500 : 700}
               fill={c.dim ? "#78350f" : "#fcd34d"}>{c.label}</text>
-            {!c.dim && <text x={c.cx} y="178" textAnchor="middle" fontSize="6.5" fill="#f59e0b" opacity="0.6">Catalog</text>}
+            {!c.dim && <text x={c.cx} y={CAT_Y + 24} textAnchor="middle" fontSize="6.5" fill="#f59e0b" opacity="0.6">Catalog</text>}
           </g>
         ))}
       </g>
 
-      {/* ─── Catalog binding indicators (step 9) — y=193, in gap before schemas at y=214 ─── */}
+      {/* ─── Binding indicators (step 9) — below catalog, above schema ─── */}
       <g style={{ opacity: v(9), transition: "opacity 0.4s" }}>
         {CATS.map(c => (
-          <text key={c.label + "-b"} x={c.cx} y="195"
+          <text key={c.label + "-b"} x={c.cx} y={CAT_Y + CAT_H + 10}
             textAnchor="middle" fontSize="6.5" fill="#06b6d4" opacity="0.75">
             &#9642; {c.binds}
           </text>
         ))}
-        <text x="370" y="204" textAnchor="middle" fontSize="5.5" fill="#06b6d4" opacity="0.4" letterSpacing="0.5">workspace binding</text>
+        <text x={CATS[0].cx} y={CAT_Y + CAT_H + 20} textAnchor="start" fontSize="5.5" fill="#06b6d4" opacity="0.4" letterSpacing="0.5">workspace binding</text>
       </g>
 
       {/* ─── prod → schema connectors (step 7) ─── */}
       <g style={{ opacity: fv(7, 0.45), transition: "opacity 0.4s" }}>
-        <line x1="554" y1="186" x2="554" y2="208" stroke="#10b981" strokeWidth="1" />
-        <line x1="515" y1="208" x2="578" y2="208" stroke="#10b981" strokeWidth="1" opacity="0.6" />
+        <line x1={CATS[2].cx} y1={CAT_Y + CAT_H} x2={CATS[2].cx} y2={SCH_Y - 10}
+          stroke="#10b981" strokeWidth="1" />
+        <line x1={SCH[0].cx} y1={SCH_Y - 10} x2={SCH[1].cx} y2={SCH_Y - 10}
+          stroke="#10b981" strokeWidth="1" opacity="0.6" />
         {SCH.map(s => (
-          <line key={s.label} x1={s.cx} y1="208" x2={s.cx} y2="214"
+          <line key={s.label} x1={s.cx} y1={SCH_Y - 10} x2={s.cx} y2={SCH_Y}
             stroke="#10b981" strokeWidth="1" opacity="0.7" />
         ))}
       </g>
 
-      {/* ─── Schemas (step 7) — x=473-620, y=214-242 ─── */}
+      {/* ─── Schemas (step 7) — 60px wide, 10px gap: bronze(485-545) gold(555-615) ─── */}
       <g style={{ opacity: v(7), transition: "opacity 0.4s" }}>
         {SCH.map(s => (
           <g key={s.label}>
-            <rect x={s.cx - 42} y="214" width="84" height="28" rx="5"
+            <rect x={s.cx - SCH_W/2} y={SCH_Y} width={SCH_W} height={SCH_H} rx="5"
               fill="#052916" stroke="#10b981" strokeWidth="1.2" opacity="0.9" />
-            <rect x={s.cx - 42} y="214" width="84" height="12" rx="5" fill="#10b981" opacity="0.18" />
-            <text x={s.cx} y="225" textAnchor="middle" fontSize="7.5" fontWeight="600" fill="#6ee7b7">{s.label}</text>
-            <text x={s.cx} y="237" textAnchor="middle" fontSize="6"   fill="#34d399" opacity="0.55">Schema · prod</text>
+            <rect x={s.cx - SCH_W/2} y={SCH_Y} width={SCH_W} height="11" rx="5" fill="#10b981" opacity="0.18" />
+            <text x={s.cx} y={SCH_Y + 10} textAnchor="middle" fontSize="7.5" fontWeight="600" fill="#6ee7b7">{s.label}</text>
+            <text x={s.cx} y={SCH_Y + 21} textAnchor="middle" fontSize="5.5" fill="#34d399" opacity="0.55">Schema · prod</text>
           </g>
         ))}
       </g>
 
-      {/* ─── Groups + grant arrows (step 8) — y=260-326, far below schemas ─── */}
-      {/* Arrows: data_engineers → prod catalog; medicaid_analysts → prod.gold schema */}
+      {/* ─── Groups + grant arrows (step 8) ─── */}
       <g style={{ opacity: v(8), transition: "opacity 0.4s" }}>
         <text x="15" y="258" fontSize="6.5" fill="#64748b" opacity="0.7">Account groups (UC-native)</text>
         {([
-          { label: "data_engineers",    cy: 276, color: "#0ea5e9", tx: 505, ty: 172, lbl: "GRANT prod" },
-          { label: "medicaid_analysts", cy: 309, color: "#f59e0b", tx: 536, ty: 228, lbl: "GRANT prod.gold" },
-        ] as const).map(g => (
+          { label: "data_engineers",    cy: 274, color: "#0ea5e9", tx: CATS[2].cx - CAT_W/2, ty: CAT_Y + CAT_H/2, tag: "GRANT prod" },
+          { label: "medicaid_analysts", cy: 304, color: "#f59e0b", tx: SCH[1].cx - SCH_W/2,  ty: SCH_Y + SCH_H/2, tag: "GRANT prod.gold" },
+        ] as { label: string; cy: number; color: string; tx: number; ty: number; tag: string }[]).map(g => (
           <g key={g.label}>
-            <rect x="15" y={g.cy - 13} width="136" height="26" rx="5"
+            <rect x="15" y={g.cy - 12} width="136" height="24" rx="5"
               fill="#0f172a" stroke={g.color} strokeWidth="1" opacity="0.85" />
-            <text x="83" y={g.cy + 5} textAnchor="middle" fontSize="7" fontWeight="600" fill={g.color}>{g.label}</text>
-            {/* Dashed grant line — stays clear of schema zone */}
+            <text x="83" y={g.cy + 4} textAnchor="middle" fontSize="7" fontWeight="600" fill={g.color}>{g.label}</text>
             <line x1="151" y1={g.cy} x2={g.tx} y2={g.ty}
               stroke={g.color} strokeWidth="1" strokeDasharray="6,3" opacity="0.35" />
-            <text
-              x={151 + (g.tx - 151) * 0.42}
-              y={g.cy + (g.ty - g.cy) * 0.42 - 5}
-              textAnchor="middle" fontSize="6" fill={g.color} opacity="0.5">{g.lbl}</text>
+            <text x={151 + (g.tx - 151) * 0.4} y={g.cy + (g.ty - g.cy) * 0.4 - 5}
+              textAnchor="middle" fontSize="6" fill={g.color} opacity="0.5">{g.tag}</text>
           </g>
         ))}
       </g>
