@@ -43,7 +43,7 @@ const NODES: Record<string, NodeMeta> = {
     stroke: "#0ea5e9", fill: "#082f4950", textColor: "#7dd3fc",
     definition: "A Databricks UI and API endpoint for running notebooks, jobs, clusters, and SQL warehouses. Workspaces attach to a metastore — they do NOT own data or permissions. Two users in different workspaces on the same metastore share the same catalog access rules.",
     owner: "Workspace Admin", ownerNote: "Manages clusters, compute policies, and workspace-level settings. Cannot grant Unity Catalog data permissions — those live on the metastore.",
-    configChoices: ["Multiple workspaces per metastore (eng / BI / ML workspaces)", "Workspace isolation = compute + UX isolation, never data isolation", "All workspaces on one metastore see the same catalog permission graph"],
+    configChoices: ["Multiple workspaces per metastore (eng / BI / ML workspaces)", "Workspace isolation = compute + UX isolation, never data isolation", "Catalog binding: explicitly bind specific catalogs to a workspace to restrict which catalogs are visible in that workspace's UI", "All workspaces on one metastore share the same UC permission graph — binding limits visibility, not access rights"],
     mistake: "Using workspace separation as a data isolation strategy.",
     mistakeFix: "Two workspaces on the same metastore = same data visibility based on UC grants. Use catalog or schema grants to isolate data access. Workspace only controls what compute users can run.",
   },
@@ -52,7 +52,7 @@ const NODES: Record<string, NodeMeta> = {
     stroke: "#f59e0b", fill: "#3b270250", textColor: "#fcd34d",
     definition: "The first-level namespace inside a metastore. Catalogs are the natural unit of environment isolation (dev / qa / prod) or domain isolation (sales / finance / hr). Permissions granted at the catalog level cascade down to all schemas and tables within.",
     owner: "Catalog Owner (account group)", ownerNote: "Ideally an account-level group such as platform_admins. Catalog owners can grant on that catalog. Avoid individual users as owners.",
-    configChoices: ["Pattern A: one catalog per environment — dev, qa, prod", "Pattern B: one catalog per domain — medicaid, snap, chip", "Pattern C: hybrid — dev_medicaid, prod_medicaid, dev_snap, prod_snap"],
+    configChoices: ["Pattern A: one catalog per environment — dev, qa, prod", "Pattern B: one catalog per domain — medicaid, snap, chip", "Pattern C: hybrid — dev_medicaid, prod_medicaid, dev_snap, prod_snap", "Workspace binding: bind a catalog to specific workspaces so it only appears in those workspace UIs (does not change UC grants)"],
     mistake: "One giant catalog containing everything.",
     mistakeFix: "Without catalog separation a grant mistake affects all environments simultaneously. At minimum separate dev from prod. Prefer hybrid if you have multiple domains and teams.",
     permExample: "GRANT USE CATALOG, USE SCHEMA ON CATALOG prod TO analysts;\nGRANT CREATE SCHEMA, CREATE TABLE ON CATALOG dev TO data_engineers;",
@@ -185,6 +185,12 @@ function HierarchySVG({ selected, onSelect }: { selected: SelectedNode; onSelect
     { id: "cat-qa",   label: "qa",   cx: 455, dim: true  },
     { id: "cat-prod", label: "prod", cx: 565, dim: false },
   ];
+  // workspace-catalog bindings: [ws index, cat index]
+  const bindings: [number, number][] = [
+    [0, 0], [0, 1], [0, 2],  // eng → dev, qa, prod
+    [1, 2],                   // bi  → prod
+    [2, 0], [2, 2],           // ml  → dev, prod
+  ];
   const nodeColor = (id: SelectedNode) => id === selected ? "2" : "1.2";
 
   return (
@@ -255,6 +261,23 @@ function HierarchySVG({ selected, onSelect }: { selected: SelectedNode; onSelect
           <text x="207" y={w.y + 24} textAnchor="middle" fontSize="6.5" fill="#38bdf8" opacity="0.55">Workspace</text>
         </g>
       ))}
+
+      {/* ── Catalog Binding lines ── */}
+      {bindings.map(([wi, ci], idx) => {
+        const wx = 285;
+        const wy = ws[wi].y + 15;
+        const cx2 = cats[ci].cx;
+        const cy2 = 218;
+        return (
+          <line key={idx}
+            x1={wx} y1={wy} x2={cx2} y2={cy2}
+            stroke="#06b6d4" strokeWidth="1" strokeDasharray="4,3" opacity={selected === "workspace" || selected === "catalog" ? 0.75 : 0.3}
+          />
+        );
+      })}
+      {/* Binding legend label */}
+      <text x="308" y="160" fontSize="7" fill="#06b6d4" opacity="0.6" textAnchor="middle">catalog</text>
+      <text x="308" y="169" fontSize="7" fill="#06b6d4" opacity="0.6" textAnchor="middle">binding</text>
 
       {/* ── Catalog nodes ── */}
       {cats.map(c => (
