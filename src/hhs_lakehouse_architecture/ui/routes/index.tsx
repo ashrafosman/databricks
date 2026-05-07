@@ -5779,7 +5779,7 @@ function HHSChapters() {
         {/* Hamburger */}
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0"
+          className="p-1.5 rounded border border-slate-500 bg-slate-700 text-slate-100 hover:bg-slate-600 hover:border-slate-400 transition-colors shrink-0"
           title="All chapters"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5797,7 +5797,7 @@ function HHSChapters() {
           <button
             onClick={() => setTheme(isDark ? "light" : "dark")}
             title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            className="p-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            className="p-1.5 rounded border border-slate-500 bg-slate-700 text-slate-100 hover:bg-slate-600 hover:border-slate-400 transition-colors"
           >
             {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
@@ -5805,7 +5805,7 @@ function HHSChapters() {
           <button
             onClick={toggleAudio}
             title={audioPlaying ? "Pause narration" : "Play narration"}
-            className={`relative p-1.5 rounded border transition-colors overflow-hidden ${audioPlaying ? "border-blue-500/60 bg-blue-950/40 text-blue-300" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}
+            className={`relative p-1.5 rounded border transition-colors overflow-hidden ${audioPlaying ? "border-blue-500/60 bg-blue-950/40 text-blue-300" : "border-slate-500 bg-slate-700 text-slate-100 hover:bg-slate-600 hover:border-slate-400"}`}
           >
             {audioPlaying ? (
               <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
