@@ -5841,7 +5841,8 @@ function HHSChapters() {
       {/* ── Audio element ── */}
       <audio
         ref={audioRef}
-        src={`/audio/ch${chapter}-narration.mp3`}
+        src={`/api/audio/ch${chapter}-narration.mp3`}
+        onError={(e) => { (e.target as HTMLAudioElement).src = `/audio/ch${chapter}-narration.mp3`; }}
         onTimeUpdate={() => {
           const el = audioRef.current;
           if (el && el.duration) setAudioProgress(el.currentTime / el.duration);
