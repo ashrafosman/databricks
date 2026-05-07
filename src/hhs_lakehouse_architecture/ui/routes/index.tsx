@@ -5669,6 +5669,9 @@ function HHSChapters() {
   const [showIntro, setShowIntro] = useState(true);
   const [transitioning, setTransitioning] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
@@ -5684,6 +5687,28 @@ function HHSChapters() {
     },
     [chapter, transitioning]
   );
+
+  // Reset audio when chapter changes
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.pause();
+    el.currentTime = 0;
+    setAudioPlaying(false);
+    setAudioProgress(0);
+  }, [chapter]);
+
+  const toggleAudio = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (audioPlaying) {
+      el.pause();
+      setAudioPlaying(false);
+    } else {
+      el.load();
+      el.play().then(() => setAudioPlaying(true)).catch((err) => console.error("Audio play failed:", err));
+    }
+  };
 
   const info = CHAPTERS[chapter - 1];
 
@@ -5776,6 +5801,24 @@ function HHSChapters() {
           >
             {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
+          {/* Audio narration button */}
+          <button
+            onClick={toggleAudio}
+            title={audioPlaying ? "Pause narration" : "Play narration"}
+            className={`relative p-1.5 rounded border transition-colors overflow-hidden ${audioPlaying ? "border-blue-500/60 bg-blue-950/40 text-blue-300" : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}
+          >
+            {audioPlaying ? (
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            )}
+            {audioProgress > 0 && (
+              <span
+                className="absolute bottom-0 left-0 h-0.5 bg-blue-400 transition-all"
+                style={{ width: `${audioProgress * 100}%` }}
+              />
+            )}
+          </button>
         </div>
       </header>
 
@@ -5794,6 +5837,17 @@ function HHSChapters() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* ── Audio element ── */}
+      <audio
+        ref={audioRef}
+        src={`/audio/ch${chapter}-narration.mp3`}
+        onTimeUpdate={() => {
+          const el = audioRef.current;
+          if (el && el.duration) setAudioProgress(el.currentTime / el.duration);
+        }}
+        onEnded={() => { setAudioPlaying(false); setAudioProgress(1); }}
+      />
 
       {/* ── Bottom nav: progress dots + prev/next arrows ── */}
       <div className="shrink-0 border-t border-border bg-background px-5 py-2 flex items-center justify-between gap-3">
