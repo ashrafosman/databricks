@@ -2780,23 +2780,25 @@ const NET_NODES: NetNode[] = [
     label: "Hub VPC / VNet", sublabel: "Centralized Connectivity Hub",
     stroke: "#3b82f6", fill: "#1e3a5f30", textColor: "#93c5fd",
     phase: 1,
-    components: ["Transit Gateway", "Network Firewall", "Shared DNS", "NAT Gateway"],
+    components: ["Transit GW / VNet Peering", "NWFW / Azure Firewall", "Private DNS Zones", "NCC (Serverless)"],
     details: {
-      description: "Central network hub through which all spoke traffic routes. Provides shared egress, traffic inspection, DNS, and connectivity via Transit Gateway / VNet Peering.",
+      description: "Central hub through which all spoke traffic routes. On Azure: Azure Firewall Premium + UDR, VNet Peering, Key Vault CMK, NCC for serverless, and a required webauth workspace. On AWS: Transit Gateway, Network Firewall, Route 53 Resolver, and NAT Gateway.",
       items: [
-        { label: "CIDR Block", value: "10.0.0.0/16" },
-        { label: "Transit Gateway", value: "AWS TGW / Azure VNet Peering" },
-        { label: "Firewall", value: "AWS NWFW / Azure Firewall Premium" },
-        { label: "DNS", value: "Route 53 Resolver / Azure Private DNS" },
-        { label: "NAT Gateway", value: "Single internet egress — all spokes" },
-        { label: "Bastion", value: "AWS SSM / Azure Bastion (no SSH keys)" },
+        { label: "CIDR Block", value: "10.0.0.0/22 (Azure) · 10.0.0.0/16 (AWS)" },
+        { label: "Connectivity", value: "Azure VNet Peering / AWS Transit Gateway" },
+        { label: "Firewall", value: "Azure Firewall Premium / AWS NWFW" },
+        { label: "Egress", value: "All 0.0.0.0/0 → Firewall via UDR / TGW" },
+        { label: "DNS", value: "Azure Private DNS Zones / Route 53 Resolver" },
+        { label: "CMK / Secrets", value: "Azure Key Vault Premium / AWS KMS" },
+        { label: "Webauth WS (Azure)", value: "WEBAUTH_DO_NOT_DELETE_<region>" },
+        { label: "NCC (Azure)", value: "databricks_mws_network_connectivity_config" },
       ],
       recs: [
-        "All spoke internet traffic routes through Hub NAT only",
-        "Enable VPC Flow Logs → S3 / Log Analytics workspace",
-        "Deploy firewall in multi-AZ HA configuration",
-        "Centralize DNS — private zones for all workspace endpoints",
-        "No internet gateway in spoke VPCs — spoke = no direct egress",
+        "Azure Firewall: deny all internet by default — allowlist FQDNs (*.ipinfo.io, cdnjs.cloudflare.com)",
+        "AWS NWFW: stateful rules for egress; centralize via TGW route tables",
+        "NCC (Azure) must be created before workspaces — required for serverless Private Link",
+        "Centralize DNS — private zones for all workspace and storage endpoints",
+        "Enable firewall diagnostic logs → Log Analytics / CloudWatch",
       ],
     },
   },
@@ -2805,22 +2807,25 @@ const NET_NODES: NetNode[] = [
     label: "Dev Workspace", sublabel: "Databricks (Development)",
     stroke: "#0ea5e9", fill: "#082f4930", textColor: "#7dd3fc",
     phase: 3,
-    components: ["VNet Injection", "No Public IP", "Dev Clusters", "Personal Compute"],
+    components: ["VNet/VPC Injection", "No Public IP (SCC)", "Private Endpoints", "Customer NSG/SG"],
     details: {
-      description: "Development Databricks workspace with permissive cluster policies. VPC/VNet injected so all traffic routes privately through the Hub.",
+      description: "Development workspace with VNet/VPC injection so all traffic routes privately through the Hub. No Public IP (SCC) means cluster nodes have no public IPs. On Azure: 3 private endpoints (backend, webauth, DBFS) and NoAzureDatabricksRules NSG. On AWS: PrivateLink + security groups.",
       items: [
-        { label: "VPC CIDR", value: "10.1.0.0/20" },
-        { label: "Cluster Subnet", value: "10.1.0.0/21 (private)" },
-        { label: "Container Subnet", value: "10.1.8.0/21 (private)" },
-        { label: "No Public IP", value: "✓ Enabled (Secure Cluster Conn.)" },
-        { label: "Connectivity", value: "Hub via Transit Gateway" },
+        { label: "VNet CIDR (Azure)", value: "10.0.4.0/22" },
+        { label: "VPC CIDR (AWS)", value: "10.1.0.0/20" },
+        { label: "Host / Cluster Subnet", value: "Azure: 10.0.4.0/24 · AWS: 10.1.0.0/21" },
+        { label: "Container Subnet", value: "Azure: 10.0.5.0/24 · AWS: 10.1.8.0/21" },
+        { label: "No Public IP", value: "✓ Secure Cluster Connectivity (both clouds)" },
+        { label: "NSG mode (Azure)", value: "NoAzureDatabricksRules (customer-managed)" },
+        { label: "Private Endpoints (Azure)", value: "backend · webauth · dbfs_dfs + dbfs_blob" },
+        { label: "Public Access", value: "Disabled — private endpoint only" },
       ],
       recs: [
-        "No Public IP — all traffic via SCC relay through Hub",
-        "Small instance types (i3.xlarge / Standard_DS3_v2)",
-        "Auto-termination: 30 min idle to control cost",
-        "Unity Catalog dev catalog only — no prod data access",
-        "Personal compute policies — single-user clusters",
+        "Azure NoAzureDatabricksRules: full NSG ownership — audit rules regularly",
+        "AWS: security groups scoped to cluster + container subnets only",
+        "Auto-termination: 30 min idle; personal compute policies for single-user clusters",
+        "Unity Catalog dev catalog only — no access to prod schemas",
+        "NCC binding (Azure) / PrivateLink (AWS) required for serverless SQL warehouses",
       ],
     },
   },
@@ -2829,23 +2834,25 @@ const NET_NODES: NetNode[] = [
     label: "Prod Workspace", sublabel: "Databricks (Production)",
     stroke: "#10b981", fill: "#05291630", textColor: "#6ee7b7",
     phase: 3,
-    components: ["VNet Injection", "No Public IP", "Job Clusters Only", "IP Access List"],
+    components: ["VNet/VPC Injection", "HIPAA CSP Enabled", "Job Clusters Only", "Enhanced Monitoring"],
     details: {
-      description: "Production workspace locked down with strict policies. No interactive clusters, comprehensive Unity Catalog governance, and audit logging to SIEM.",
+      description: "Production workspace with full SRA hardening. HIPAA Compliance Security Profile (CSP), enhanced security monitoring, automatic cluster updates, and DBFS storage firewall enforced. Public workspace endpoint disabled on both clouds.",
       items: [
-        { label: "VPC CIDR", value: "10.2.0.0/20" },
-        { label: "Cluster Subnet", value: "10.2.0.0/21 (private)" },
-        { label: "Container Subnet", value: "10.2.8.0/21 (private)" },
-        { label: "No Public IP", value: "✓ Enabled" },
+        { label: "VNet CIDR (Azure)", value: "10.0.8.0/22" },
+        { label: "VPC CIDR (AWS)", value: "10.2.0.0/20" },
+        { label: "No Public IP", value: "✓ Enabled (both clouds)" },
+        { label: "Public Access", value: "Disabled — private endpoint only" },
+        { label: "DBFS Firewall (Azure)", value: "default_storage_firewall_enabled = true" },
+        { label: "Compliance", value: "compliance_security_profile: HIPAA" },
+        { label: "Security Monitoring", value: "enhanced_security_monitoring = true" },
         { label: "IP Access List", value: "Restricted to Hub egress IPs only" },
-        { label: "Workspace URL", value: "Private Endpoint — public disabled" },
       ],
       recs: [
-        "Job clusters only — no interactive clusters in prod",
-        "Unity Catalog: row/column-level security per agency",
-        "Audit logs → SIEM (Splunk / Microsoft Sentinel)",
-        "Separate service principals per pipeline",
-        "Enforce Photon + spot instances for cost savings",
+        "Job clusters only — disable interactive cluster creation in prod",
+        "automatic_cluster_update_enabled = true — auto-patches runtime images",
+        "Audit logs → Microsoft Sentinel (Azure) / Splunk or CloudWatch (AWS)",
+        "Separate service principals / IAM roles per pipeline — no shared credentials",
+        "Disable legacy DBFS access and legacy access settings (SRA default on Azure)",
       ],
     },
   },
@@ -2854,22 +2861,23 @@ const NET_NODES: NetNode[] = [
     label: "Staging Workspace", sublabel: "Databricks (Pre-Production)",
     stroke: "#f59e0b", fill: "#3b270230", textColor: "#fcd34d",
     phase: 3,
-    components: ["Mirror of Prod", "Anonymized Data", "Perf Tests", "Canary Deploys"],
+    components: ["Mirror of Prod", "Anonymized Data", "Perf Tests", "Same IaC Modules"],
     details: {
-      description: "Pre-production environment mirroring Prod network topology exactly. Used for integration tests, performance validation, and canary deployments.",
+      description: "Pre-production environment provisioned with the same Terraform SRA modules as Prod. Network topology, NSG/SG rules, and private endpoint configuration are identical — only data is anonymized.",
       items: [
-        { label: "VPC CIDR", value: "10.3.0.0/20" },
-        { label: "Cluster Subnet", value: "10.3.0.0/21 (private)" },
-        { label: "Config source", value: "Same Terraform modules as Prod" },
+        { label: "VNet CIDR (Azure)", value: "10.0.12.0/22" },
+        { label: "VPC CIDR (AWS)", value: "10.3.0.0/20" },
+        { label: "Config source", value: "Same Terraform SRA modules as Prod" },
         { label: "Data", value: "Anonymized PII subset of prod" },
         { label: "No Public IP", value: "✓ Enabled" },
+        { label: "Compliance", value: "CSP: HIPAA (mirrors prod)" },
       ],
       recs: [
-        "Provision with identical Terraform as Prod — no drift",
-        "Anonymize all PII before loading to staging",
-        "Run full regression suite before every Prod deploy",
-        "Canary: route 5% of pipeline traffic to staging first",
-        "Auto-destroy clusters nightly to control cost",
+        "Provision with identical Terraform SRA as Prod — zero config drift",
+        "Anonymize all PII before loading staging datasets",
+        "Run full regression suite before every Prod deployment",
+        "Auto-destroy clusters nightly; use spot / preemptible instances to control cost",
+        "Canary: test 5% of batch pipeline traffic in staging before Prod cutover",
       ],
     },
   },
@@ -2878,22 +2886,25 @@ const NET_NODES: NetNode[] = [
     label: "Shared Services", sublabel: "Storage · Secrets · Catalog",
     stroke: "#8b5cf6", fill: "#2e106530", textColor: "#c4b5fd",
     phase: 3,
-    components: ["ADLS Gen2 / S3", "Key Vault", "Unity Catalog", "Container Registry"],
+    components: ["ADLS Gen2 / S3", "Key Vault / KMS", "Unity Catalog", "Access Connector / IAM"],
     details: {
-      description: "Centralized spoke hosting the data lake, secrets, Unity Catalog metastore, and container registry. Accessible to all workspaces via private endpoints.",
+      description: "Centralized shared infrastructure. On Azure: ADLS Gen2 (DBFS root) with private endpoints, Key Vault CMK, and an Access Connector managed identity per workspace. On AWS: S3 with VPC endpoints, KMS CMK, and IAM instance profiles. UC metastore shared across all workspaces.",
       items: [
-        { label: "VPC CIDR", value: "10.4.0.0/20" },
         { label: "Storage", value: "Azure ADLS Gen2 / AWS S3 (private endpoint)" },
-        { label: "Secrets", value: "Azure Key Vault / AWS Secrets Manager" },
-        { label: "Metastore", value: "Unity Catalog account-level metastore" },
-        { label: "Container Reg.", value: "ACR / ECR (private endpoint)" },
+        { label: "DBFS Firewall (Azure)", value: "default_storage_firewall_enabled = true" },
+        { label: "Secrets", value: "Azure Key Vault Premium / AWS KMS + Secrets Mgr" },
+        { label: "CMK Keys (Azure)", value: "managed_services + managed_disk (RSA-2048)" },
+        { label: "Identity", value: "Azure Access Connector MI / AWS IAM role" },
+        { label: "UC Metastore", value: "Account-level metastore (one per region)" },
+        { label: "Legacy DBFS", value: "Disabled (SRA default on Azure)" },
+        { label: "Replication", value: "Cross-region for DR (RPO < 1hr target)" },
       ],
       recs: [
-        "Private endpoints for all storage — no public access",
-        "Managed Identity / IAM roles only (no static keys)",
-        "Key Vault: soft-delete + purge protection enabled",
-        "Versioned Delta Lake with lifecycle policies (Bronze 7yr)",
-        "Cross-region replication for DR (RPO < 1hr target)",
+        "Private endpoints (Azure dfs + blob) / VPC endpoints (AWS) — block public storage access",
+        "Azure Access Connector managed identity replaces all static storage keys",
+        "Key Vault / KMS: soft-delete + purge protection; grant least-privilege key ops only",
+        "Avoid storing production data in DBFS root — use UC external locations",
+        "NCC self-approving PE (Azure) auto-approves serverless connections to DBFS storage",
       ],
     },
   },
@@ -2903,22 +2914,23 @@ const NET_NODES: NetNode[] = [
     stroke: "#64748b", fill: "#0f172a30", textColor: "#94a3b8",
     isExternal: true,
     phase: 5,
-    components: ["VPN / ExpressRoute", "Active Directory", "Legacy DBs"],
+    components: ["VPN / ExpressRoute", "Entra ID / AD", "Legacy DBs"],
     details: {
-      description: "Existing HHS data center. Hybrid connectivity via ExpressRoute (preferred) or site-to-site VPN. AD synced for SSO into Databricks workspaces.",
+      description: "Existing HHS data center. Hybrid connectivity via ExpressRoute / Direct Connect (preferred) or site-to-site VPN. Entra ID / Active Directory synced for SSO into Databricks workspaces.",
       items: [
-        { label: "Connectivity", value: "S2S VPN (1Gbps) / ExpressRoute" },
-        { label: "Latency", value: "<5ms to Hub (ExpressRoute)" },
-        { label: "Directory", value: "AD DS → Azure AD (EntraID) sync" },
-        { label: "BGP", value: "Enabled — automated route propagation" },
-        { label: "Failover", value: "Active-Active dual VPN tunnels" },
+        { label: "Connectivity", value: "ExpressRoute (Azure) / Direct Connect (AWS)" },
+        { label: "Failover", value: "Active-Active S2S VPN tunnels" },
+        { label: "Latency", value: "<5ms to Hub (dedicated circuit)" },
+        { label: "Directory", value: "AD DS → Entra ID / AWS Directory Service" },
+        { label: "User provisioning", value: "SCIM → Databricks account console" },
+        { label: "MFA", value: "Entra ID / Okta Conditional Access required" },
       ],
       recs: [
-        "ExpressRoute for production — predictable latency, no jitter",
-        "Active-Active VPN as failover while ER is provisioned",
-        "Azure AD Connect / AWS Directory Service for SSO",
-        "BGP for automated route advertisement",
-        "Monitor with Network Performance Monitor / Network Watcher",
+        "ExpressRoute / Direct Connect for production — no public internet exposure",
+        "Active-Active VPN as failover while dedicated circuit is being provisioned",
+        "Enable SCIM provisioning — automates deprovisioning when users leave HHS",
+        "Enforce MFA via Entra ID / Okta Conditional Access before Databricks login",
+        "Monitor with Azure Network Watcher / AWS Network Performance Monitor",
       ],
     },
   },
@@ -2928,22 +2940,25 @@ const NET_NODES: NetNode[] = [
     stroke: "#6366f1", fill: "#1e1b4b30", textColor: "#a5b4fc",
     isExternal: true,
     phase: 5,
-    components: ["Private Link", "REST API", "SCC Relay", "Workspace UI"],
+    components: ["Azure Private Link", "AWS PrivateLink", "SCC Relay", "NCC Serverless"],
     details: {
-      description: "Databricks SaaS control plane. Private Link keeps all control-plane traffic on the Azure/AWS backbone — no public internet traversal.",
+      description: "Databricks SaaS control plane. Azure: 3 private endpoints (backend, webauth, DBFS dfs+blob) + NCC for serverless. AWS: PrivateLink for REST API + SCC relay. Both keep all control-plane traffic off the public internet.",
       items: [
-        { label: "Connectivity", value: "Azure Private Link / AWS PrivateLink" },
-        { label: "DNS Override", value: "*.azuredatabricks.net → private IP" },
-        { label: "Secure Cluster Conn.", value: "Relay in Databricks control plane" },
-        { label: "Public Endpoint", value: "Disabled on workspace" },
-        { label: "Region", value: "Same region as Hub VPC" },
+        { label: "PE: backend (Azure)", value: "subresource: databricks_ui_api" },
+        { label: "PE: webauth (Azure)", value: "subresource: browser_authentication" },
+        { label: "PE: DBFS (Azure)", value: "dbfs_dfs (dfs) + dbfs_blob (blob)" },
+        { label: "DNS zone (Azure)", value: "privatelink.azuredatabricks.net" },
+        { label: "PrivateLink (AWS)", value: "*.cloud.databricks.com → private IP" },
+        { label: "Public Endpoint", value: "Disabled on workspace (both clouds)" },
+        { label: "SCC Relay", value: "Clusters ↔ CP via relay (no port 22)" },
+        { label: "Serverless (Azure)", value: "NCC binding + RESTRICTED_ACCESS policy" },
       ],
       recs: [
-        "Private Link is MANDATORY for HIPAA / FedRAMP workloads",
-        "Disable public workspace endpoint after Private Link setup",
-        "Private DNS zones: *.azuredatabricks.net / *.cloud.databricks.com",
-        "Secure Cluster Connectivity — no port 22 / SSH open",
-        "Deploy workspace in same region as storage to avoid egress",
+        "Azure: 3 private endpoints required — backend, webauth, and DBFS (dfs + blob)",
+        "Private Link / PrivateLink is MANDATORY for HIPAA and FedRAMP workloads",
+        "Azure: set public_network_access_enabled = false after PE provisioning",
+        "Private DNS zones must be linked to all spoke VNets / VPCs",
+        "NCC + account network policy enforces RESTRICTED_ACCESS for serverless egress (Azure)",
       ],
     },
   },
@@ -2953,10 +2968,10 @@ const NET_EDGES: {
   from: NetNodeId; to: NetNodeId; label: string;
   dashed?: boolean; dotted?: boolean; phase: number; color: string;
 }[] = [
-  { from: "hub", to: "dev",     label: "VPC Peering / TGW", phase: 2, color: "#0ea5e9" },
-  { from: "hub", to: "prod",    label: "VPC Peering / TGW", phase: 2, color: "#10b981" },
-  { from: "hub", to: "staging", label: "VPC Peering / TGW", phase: 2, color: "#f59e0b" },
-  { from: "hub", to: "shared",  label: "VPC Peering / TGW", phase: 2, color: "#8b5cf6" },
+  { from: "hub", to: "dev",     label: "VNet Peering / TGW", phase: 2, color: "#0ea5e9" },
+  { from: "hub", to: "prod",    label: "VNet Peering / TGW", phase: 2, color: "#10b981" },
+  { from: "hub", to: "staging", label: "VNet Peering / TGW", phase: 2, color: "#f59e0b" },
+  { from: "hub", to: "shared",  label: "VNet Peering / TGW", phase: 2, color: "#8b5cf6" },
   { from: "hub", to: "onprem",  label: "VPN / ExpressRoute", dashed: true,  phase: 5, color: "#64748b" },
   { from: "hub", to: "cp",      label: "Private Link",       dotted: true,  phase: 5, color: "#6366f1" },
 ];
@@ -2972,6 +2987,8 @@ function Chapter10() {
   const [calcSubnetPrefix, setCalcSubnetPrefix] = useState(21);
   const [calcWorkspaces, setCalcWorkspaces] = useState(4);
   const [dotStep, setDotStep] = useState(-1);
+  const [animMode, setAnimMode] = useState<"infra" | "user">("infra");
+  const [stepDone, setStepDone] = useState(false);
 
   // Sequential dot animation sequence: cp→hub→dev→hub→shared→hub→staging→hub→prod→hub→onprem→hub (stop)
   const DOT_SEQUENCE = [
@@ -2986,6 +3003,24 @@ function Chapter10() {
     { fx: 795, fy: 110, tx: 480, ty: 250, color: "#10b981", dur: 1.05 }, // prod → hub
     { fx: 480, fy: 250, tx:  48, ty: 250, color: "#64748b", dur: 1.3  }, // hub → onprem
     { fx:  48, fy: 250, tx: 480, ty: 250, color: "#64748b", dur: 1.3  }, // onprem → hub (stop)
+  ];
+
+  // User connection flow: end user on-prem → Hub → Control Plane (auth) → Dev workspace → cluster work → storage
+  const USER_DOT_SEQUENCE: { fx: number; fy: number; tx: number; ty: number; color: string; dur: number; label: string }[] = [
+    { fx:  48, fy: 250, tx: 480, ty: 250, color: "#94a3b8", dur: 1.4, label: "① VPN / ExpressRoute → Hub" },      // user → hub
+    { fx: 480, fy: 250, tx: 912, ty: 250, color: "#a5b4fc", dur: 1.2, label: "② Hub → webauth PE (DNS lookup)" }, // hub → cp (webauth)
+    { fx: 912, fy: 250, tx: 480, ty: 250, color: "#a5b4fc", dur: 1.0, label: "③ Auth token → Hub" },              // cp → hub
+    { fx: 480, fy: 250, tx: 165, ty: 110, color: "#7dd3fc", dur: 1.0, label: "④ Hub → Dev (Workspace UI)" },      // hub → dev
+    { fx: 165, fy: 110, tx: 480, ty: 250, color: "#38bdf8", dur: 0.9, label: "⑤ Cluster → Hub (SCC relay)" },     // dev → hub (SCC)
+    { fx: 480, fy: 250, tx: 912, ty: 250, color: "#38bdf8", dur: 0.9, label: "⑥ Hub → CP (backend PE)" },         // hub → cp (SCC)
+    { fx: 912, fy: 250, tx: 480, ty: 250, color: "#38bdf8", dur: 0.9, label: "⑦ CP → Hub (job command)" },        // cp → hub
+    { fx: 480, fy: 250, tx: 165, ty: 110, color: "#38bdf8", dur: 0.9, label: "⑧ Hub → cluster (dispatch)" },      // hub → dev
+    { fx: 165, fy: 110, tx: 795, ty: 390, color: "#c4b5fd", dur: 1.1, label: "⑨ Cluster reads storage" },         // dev → shared
+    { fx: 795, fy: 390, tx: 165, ty: 110, color: "#c4b5fd", dur: 1.1, label: "⑩ Data returned to cluster" },      // shared → dev
+    { fx: 165, fy: 110, tx: 480, ty: 250, color: "#6ee7b7", dur: 0.9, label: "⑪ Cluster → Hub (results)" },       // dev → hub
+    { fx: 480, fy: 250, tx: 912, ty: 250, color: "#6ee7b7", dur: 0.9, label: "⑫ Hub → CP relay" },                // hub → cp
+    { fx: 912, fy: 250, tx: 480, ty: 250, color: "#6ee7b7", dur: 0.9, label: "⑬ CP → Hub (response)" },           // cp → hub
+    { fx: 480, fy: 250, tx:  48, ty: 250, color: "#6ee7b7", dur: 1.2, label: "⑭ Hub → User (notebook result)" },  // hub → user
   ];
 
   useEffect(() => {
@@ -3016,19 +3051,36 @@ function Chapter10() {
     }
   }, [phase]);
 
+  // Reset dot animation when switching modes (after network is up)
+  useEffect(() => {
+    if (phase === 6) {
+      setDotStep(-1);
+      setStepDone(false);
+      const t = setTimeout(() => setDotStep(0), 200);
+      return () => clearTimeout(t);
+    }
+  }, [animMode]);
+
 
   const nodeMap = Object.fromEntries(NET_NODES.map(n => [n.id, n])) as Record<NetNodeId, NetNode>;
   const sel = nodeMap[selected];
 
   const SPOKE_SUBNETS: Record<string, { label: string; cidr: string }[]> = {
-    dev:     [{ label: "Cluster Subnet",   cidr: "10.1.0.0/21" }, { label: "Container Subnet", cidr: "10.1.8.0/21" }],
-    prod:    [{ label: "Cluster Subnet",   cidr: "10.2.0.0/21" }, { label: "Container Subnet", cidr: "10.2.8.0/21" }],
-    staging: [{ label: "Cluster Subnet",   cidr: "10.3.0.0/21" }, { label: "Container Subnet", cidr: "10.3.8.0/21" }],
-    shared:  [{ label: "Storage PE Subnet", cidr: "10.4.0.0/21" }, { label: "Services Subnet", cidr: "10.4.8.0/21" }],
+    dev:     [{ label: "Host / Cluster",   cidr: "Azure: 10.0.4.0/24" }, { label: "Container Subnet", cidr: "AWS: 10.1.0.0/21" }],
+    prod:    [{ label: "Host / Cluster",   cidr: "Azure: 10.0.8.0/24" }, { label: "Container Subnet", cidr: "AWS: 10.2.0.0/21" }],
+    staging: [{ label: "Host / Cluster",   cidr: "Azure: 10.0.12.0/24" }, { label: "Container Subnet", cidr: "AWS: 10.3.0.0/21" }],
+    shared:  [{ label: "Storage PE",       cidr: "Azure: 10.0.2.0/24" }, { label: "S3 / KMS VPC EP", cidr: "AWS: 10.4.0.0/21" }],
   };
+
+  function handleNextStep() {
+    setStepDone(false);
+    setDotStep(prev => prev + 1);
+  }
 
   function handleReplay() {
     setDotStep(-1);
+    setStepDone(false);
+    setAnimMode("infra");
     setPhase(0);
     setTimeout(() => { setPhase(1); }, 100);
     setTimeout(() => { setPhase(2); }, 800);
@@ -3036,6 +3088,10 @@ function Chapter10() {
     setTimeout(() => { setPhase(4); }, 2300);
     setTimeout(() => { setPhase(5); }, 2800);
     setTimeout(() => { setPhase(6); }, 3200);
+  }
+
+  function handleUserFlow() {
+    setAnimMode(m => m === "user" ? "infra" : "user");
   }
 
   return (
@@ -3049,11 +3105,30 @@ function Chapter10() {
         </div>
         <div className="absolute top-3 right-4 z-10 flex items-center gap-2">
 <button
+            onClick={handleUserFlow}
+            className={`flex items-center gap-1.5 text-[13px] border rounded px-2 py-1 transition-colors ${animMode === "user" ? "text-sky-300 border-sky-600 bg-sky-950/40" : "text-slate-400 hover:text-white border-slate-700 hover:border-slate-500"}`}
+          >
+            <Users className="w-2.5 h-2.5" /> User Flow
+          </button>
+          <button
             onClick={handleReplay}
             className="flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded px-2 py-1 transition-colors"
           >
             <RefreshCw className="w-2.5 h-2.5" /> Replay
           </button>
+          {animMode === "user" && dotStep >= 0 && (
+            <span className="text-[11px] text-slate-500 font-mono">
+              {Math.min(dotStep + 1, USER_DOT_SEQUENCE.length)}&nbsp;/&nbsp;{USER_DOT_SEQUENCE.length}
+            </span>
+          )}
+          {animMode === "user" && stepDone && dotStep < USER_DOT_SEQUENCE.length - 1 && (
+            <button
+              onClick={handleNextStep}
+              className="flex items-center gap-1.5 text-[13px] text-sky-300 border border-sky-600 bg-sky-950/40 hover:bg-sky-900/50 rounded px-2 py-1 transition-colors"
+            >
+              Next <ChevronRight className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         <svg
@@ -3190,7 +3265,7 @@ function Chapter10() {
                       stroke={node.stroke} strokeWidth={isSelected ? 2 : 1.4}
                       strokeDasharray="7,4" opacity={0.85}
                     />
-                    {/* "VPC" badge — top left */}
+                    {/* "VNet" badge — top left */}
                     <rect
                       x={node.cx - vpcW / 2 + 5} y={vpcTopY + 3}
                       width={20} height={11}
@@ -3201,7 +3276,7 @@ function Chapter10() {
                       textAnchor="middle" fontSize="6.5" fill={node.textColor}
                       fontWeight="800" opacity="0.85"
                     >
-                      VPC
+                      VNet
                     </text>
                     {/* CIDR — top right */}
                     {phase >= 3 && (
@@ -3211,7 +3286,7 @@ function Chapter10() {
                         fill={node.textColor} opacity="0.55"
                         style={{ fontFamily: "ui-monospace, monospace" }}
                       >
-                        {node.details.items.find(it => it.label === "VPC CIDR")?.value.split(" ")[0] ?? ""}
+                        {(node.details.items.find(it => it.label === "VNet CIDR (Azure)") ?? node.details.items.find(it => it.label === "CIDR Block"))?.value.split(" ")[0] ?? ""}
                       </text>
                     )}
                   </>
@@ -3303,19 +3378,41 @@ function Chapter10() {
           })}
 
           {/* Sequential Dot Animation */}
-          {dotStep >= 0 && dotStep < DOT_SEQUENCE.length && (() => {
-            const s = DOT_SEQUENCE[dotStep];
+          {(() => {
+            const seq = animMode === "user" ? USER_DOT_SEQUENCE : DOT_SEQUENCE;
+            if (dotStep < 0 || dotStep >= seq.length) return null;
+            const s = seq[dotStep];
+            const midX = (s.fx + s.tx) / 2;
+            const midY = (s.fy + s.ty) / 2 - 10;
             return (
-              <motion.circle
-                key={dotStep}
-                r={5}
-                fill={s.color}
-                cx={s.fx} cy={s.fy}
-                style={{ filter: `drop-shadow(0 0 5px ${s.color})` }}
-                animate={{ cx: s.tx, cy: s.ty }}
-                transition={{ duration: s.dur, ease: "linear" }}
-                onAnimationComplete={() => setDotStep(prev => prev + 1)}
-              />
+              <g key={`dot-${animMode}-${dotStep}`}>
+                <motion.circle
+                  r={animMode === "user" ? 6 : 5}
+                  fill={s.color}
+                  cx={s.fx} cy={s.fy}
+                  style={{ filter: `drop-shadow(0 0 6px ${s.color})` }}
+                  animate={{ cx: s.tx, cy: s.ty }}
+                  transition={{ duration: s.dur, ease: "linear" }}
+                  onAnimationComplete={() => {
+                    if (animMode === "user") {
+                      setStepDone(true);
+                    } else {
+                      setDotStep(prev => prev + 1);
+                    }
+                  }}
+                />
+                {animMode === "user" && "label" in s && (
+                  <motion.text
+                    x={midX} y={midY}
+                    textAnchor="middle" fontSize="7.5" fontWeight="700"
+                    fill={s.color}
+                    initial={{ opacity: 0 }} animate={{ opacity: 0.9 }} transition={{ duration: 0.3 }}
+                    style={{ filter: `drop-shadow(0 0 3px #000)` }}
+                  >
+                    {(s as { label: string }).label}
+                  </motion.text>
+                )}
+              </g>
             );
           })()}
 
@@ -3323,13 +3420,13 @@ function Chapter10() {
 
           {panelTab === "router" && phase >= 2 && (
             <g>
-              {/* Hub: BGP ASN + Firewall badge */}
+              {/* Hub: Firewall badge */}
               <rect x={396} y={193} width={168} height={14} rx="3" fill="#050f1f" opacity="0.96" stroke="#3b82f620" strokeWidth="1"/>
-              <text x={480} y={203} textAnchor="middle" fontSize="7" fill="#60a5fa" fontWeight="600">BGP ASN 64512 · Network Firewall</text>
+              <text x={480} y={203} textAnchor="middle" fontSize="7" fill="#60a5fa" fontWeight="600">Azure Firewall / AWS NWFW · Hub Routing</text>
 
               {/* On-prem BGP */}
               <rect x={8} y={216} width={80} height={13} rx="3" fill="#050f1f" opacity="0.96"/>
-              <text x={48} y={225} textAnchor="middle" fontSize="7" fill="#94a3b8">BGP ASN 65000</text>
+              <text x={48} y={225} textAnchor="middle" fontSize="7" fill="#94a3b8">VPN / ExpressRoute / DX</text>
 
               {/* Route table badges — below VPC container bottom (cy + h/2 + 36) */}
               {[
@@ -3340,17 +3437,17 @@ function Chapter10() {
               ].map((n, i) => (
                 <g key={i}>
                   <rect x={n.cx - 70} y={n.cy + n.h / 2 + 39} width={140} height={13} rx="3" fill="#05111f" opacity="0.96" stroke="#1e293b" strokeWidth="0.5"/>
-                  <text x={n.cx} y={n.cy + n.h / 2 + 48} textAnchor="middle" fontSize="6.5" fill="#7dd3fc">RT: 0.0.0.0/0 → Hub TGW</text>
+                  <text x={n.cx} y={n.cy + n.h / 2 + 48} textAnchor="middle" fontSize="6.5" fill="#7dd3fc">RT: 0.0.0.0/0 → Hub Firewall</text>
                 </g>
               ))}
 
               {/* Firewall policy strip below Hub */}
               <rect x={380} y={313} width={200} height={13} rx="3" fill="#050f1f" opacity="0.94" stroke="#3b82f620" strokeWidth="1"/>
-              <text x={480} y={322} textAnchor="middle" fontSize="6.5" fill="#93c5fd">DENY spoke↔spoke · ALLOW spoke → Hub NAT</text>
+              <text x={480} y={322} textAnchor="middle" fontSize="6.5" fill="#93c5fd">DENY spoke↔spoke · ALLOW spoke → Hub Firewall / NAT</text>
 
               {/* Black-hole badge above hub */}
               <rect x={396} y={180} width={168} height={12} rx="3" fill="#0f0505" opacity="0.94" stroke="#ef444420" strokeWidth="0.5"/>
-              <text x={480} y={189} textAnchor="middle" fontSize="6.5" fill="#fca5a5">RFC1918 black-hole · no direct spoke-to-spoke</text>
+              <text x={480} y={189} textAnchor="middle" fontSize="6.5" fill="#fca5a5">No direct spoke↔spoke · all egress via Hub Firewall</text>
             </g>
           )}
 
@@ -3416,7 +3513,7 @@ function Chapter10() {
                 {/* Hub: VPC summary */}
                 <rect x={392} y={191} width={176} height={14} rx="3" fill="#050018" opacity="0.97" stroke="#7c3aed25" strokeWidth="1"/>
                 <text x={480} y={201} textAnchor="middle" fontSize="7" fill="#c4b5fd" fontWeight="600">
-                  {`VPC /${calcVpcPrefix} · ${subnetsAvail} subnets · max ${maxWsLocal} workspaces`}
+                  {`VPC/VNet /${calcVpcPrefix} · ${subnetsAvail} subnets · max ${maxWsLocal} workspaces`}
                 </text>
 
                 {/* Per-workspace node overlay */}
@@ -3446,14 +3543,28 @@ function Chapter10() {
             );
           })()}
 
-          {/* Click hint */}
+          {/* Click hint / user flow mode label */}
           {phase >= 6 && (
             <motion.text
               x={480} y={488} textAnchor="middle" fontSize="8" fill="#475569"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
             >
-              Click any component to see configuration details
+              {animMode === "user" ? "End-user connection flow · click any node for details" : "Click any component to see configuration details"}
             </motion.text>
+          )}
+          {/* User flow: on-premises user icon */}
+          {animMode === "user" && phase >= 5 && (
+            <g>
+              <motion.rect x={6} y={200} width={84} height={20} rx="4"
+                fill="#0f172a" stroke="#38bdf8" strokeWidth="1" opacity="0.9"
+                initial={{ opacity: 0 }} animate={{ opacity: 0.9 }}
+              />
+              <motion.text x={48} y={214} textAnchor="middle" fontSize="7.5" fill="#7dd3fc" fontWeight="700"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              >
+                👤 HHS Analyst
+              </motion.text>
+            </g>
           )}
         </svg>
       </div>
@@ -3479,7 +3590,7 @@ function Chapter10() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-2 shrink-0">
               <p className="text-[13px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Connection Types</p>
               {[
-                { label: "VPC Peering / TGW", style: "solid" as const, color: "#3b82f6" },
+                { label: "VNet Peering / TGW", style: "solid" as const, color: "#3b82f6" },
                 { label: "VPN / ExpressRoute", style: "dashed" as const, color: "#64748b" },
                 { label: "Private Link (SaaS)", style: "dotted" as const, color: "#6366f1" },
               ].map(l => (
@@ -3541,18 +3652,18 @@ function Chapter10() {
         {panelTab === "router" && (
           <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-4 overflow-y-auto">
             <div>
-              <p className="text-sm font-bold text-white mb-0.5">Router Settings</p>
-              <p className="text-[13px] text-slate-500">Transit Gateway / VNet Peering route configuration for Hub-Spoke topology.</p>
+              <p className="text-sm font-bold text-white mb-0.5">Routing & Firewall</p>
+              <p className="text-[13px] text-slate-500">Azure UDR + Azure Firewall / AWS Transit Gateway routing for Hub-Spoke topology.</p>
             </div>
             <div className="space-y-1.5">
               <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Route Tables</p>
               {[
-                { label: "Hub Route Table", value: "Summarized 10.0.0.0/8 → TGW" },
-                { label: "Dev Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
-                { label: "Staging Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
-                { label: "Prod Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
-                { label: "Shared Spoke RT", value: "0.0.0.0/0 → Hub TGW attachment" },
-                { label: "Black-Hole Route", value: "RFC1918 → Drop (no spoke-to-spoke)" },
+                { label: "Hub Route Table", value: "Azure: VNet Peering + 0.0.0.0/0 → Firewall · AWS: TGW summarized 10.0.0.0/8" },
+                { label: "Dev Spoke RT", value: "0.0.0.0/0 → Azure Firewall (UDR) / Hub TGW (AWS)" },
+                { label: "Staging Spoke RT", value: "0.0.0.0/0 → Azure Firewall (UDR) / Hub TGW (AWS)" },
+                { label: "Prod Spoke RT", value: "0.0.0.0/0 → Azure Firewall (UDR) / Hub TGW (AWS)" },
+                { label: "Shared Spoke RT", value: "0.0.0.0/0 → Azure Firewall (UDR) / Hub TGW (AWS)" },
+                { label: "Spoke-to-Spoke", value: "No direct peering — all traffic via Hub Firewall" },
               ].map((row, i) => (
                 <div key={i} className="flex justify-between items-start gap-2">
                   <span className="text-[13px] text-slate-500 shrink-0">{row.label}</span>
@@ -3561,12 +3672,27 @@ function Chapter10() {
               ))}
             </div>
             <div className="space-y-1.5">
-              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">BGP Settings</p>
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Firewall Rules</p>
               {[
-                { label: "ASN (Hub)", value: "64512 (private)" },
+                { label: "Azure: Network rule", value: "Spoke → Azure Storage :443 / SQL :3306 / EventHub :9093" },
+                { label: "Azure: App rule", value: "FQDN allowlist: *.ipinfo.io, cdnjs.cloudflare.com" },
+                { label: "AWS: Stateful rule", value: "Spoke → S3 / Glue endpoints via TGW" },
+                { label: "Default posture", value: "DENY all internet — explicit allowlist only" },
+                { label: "Spoke → Spoke", value: "DENY (no lateral movement)" },
+              ].map((row, i) => (
+                <div key={i} className="flex justify-between items-start gap-2">
+                  <span className="text-[13px] text-slate-500 shrink-0">{row.label}</span>
+                  <span className="text-[13px] text-slate-300 text-right font-mono text-[11px] leading-relaxed">{row.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">BGP / Routing (AWS)</p>
+              {[
+                { label: "ASN (Hub TGW)", value: "64512 (private)" },
                 { label: "ASN (On-Prem)", value: "65000" },
-                { label: "Keepalive", value: "10s / Hold: 30s" },
                 { label: "Route Propagation", value: "Enabled on all TGW attachments" },
+                { label: "Keepalive", value: "10s / Hold: 30s" },
                 { label: "Communities", value: "65000:100 (on-prem prefixes)" },
               ].map((row, i) => (
                 <div key={i} className="flex justify-between items-start gap-2">
@@ -3581,7 +3707,7 @@ function Chapter10() {
                 { from: "Dev", to: "Shared", port: "443 HTTPS", color: "#0ea5e9" },
                 { from: "Staging", to: "Shared", port: "443 HTTPS", color: "#f59e0b" },
                 { from: "Prod", to: "Shared", port: "443 HTTPS", color: "#10b981" },
-                { from: "Any Spoke", to: "Internet", port: "DENY (Hub NAT only)", color: "#ef4444" },
+                { from: "Any Spoke", to: "Internet", port: "DENY (not in FQDN allowlist)", color: "#ef4444" },
                 { from: "Spoke", to: "Spoke", port: "DENY (no lateral)", color: "#ef4444" },
               ].map((row, i) => (
                 <div key={i} className="flex items-center gap-2 text-[12px]">
@@ -3670,14 +3796,14 @@ function Chapter10() {
             <div className="flex-1 rounded-xl border border-slate-800/60 bg-slate-900/30 p-3 space-y-4 overflow-y-auto">
               <div>
                 <p className="text-sm font-bold text-white mb-0.5">Capacity Calculator</p>
-                <p className="text-[12px] text-slate-500">Nodes per subnet &amp; workspaces per VPC.</p>
+                <p className="text-[12px] text-slate-500">Nodes per subnet &amp; workspaces per VPC/VNet.</p>
               </div>
 
               {/* Sliders */}
               <div className="space-y-3">
                 <div>
                   <div className="flex justify-between mb-1">
-                    <span className="text-[12px] text-slate-400">VPC CIDR Prefix</span>
+                    <span className="text-[12px] text-slate-400">VPC/VNet CIDR Prefix</span>
                     <span className="text-[12px] font-mono text-blue-300">/{calcVpcPrefix} ({ipSpace(vpcIPs)} IPs)</span>
                   </div>
                   <input type="range" min={14} max={22} step={1} value={calcVpcPrefix}
@@ -3734,7 +3860,7 @@ function Chapter10() {
               {/* VPC usage bar */}
               <div>
                 <div className="flex justify-between mb-1">
-                  <span className="text-[12px] text-slate-500">VPC utilization</span>
+                  <span className="text-[12px] text-slate-500">VPC/VNet utilization</span>
                   <span className="text-[12px] text-slate-500">{vpcUsedPct}%</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -4684,7 +4810,7 @@ interface BpItem {
 const BP_ITEMS: BpItem[] = [
   // ── Infrastructure Foundation ──
   {
-    id: "network", label: "Hub-and-Spoke Network", sublabel: "VPC / Private Link",
+    id: "network", label: "Hub-and-Spoke Network", sublabel: "VPC / VNet / Private Link",
     layer: "infra", chapters: [3], chapterTitles: ["Network Architecture"],
     desc: "A central hub VPC connects to every agency spoke via Private Link. No public internet traversal — all data flows inside the cloud backbone.",
     bullets: [
@@ -5634,8 +5760,8 @@ const CHAPTERS = [
   },
   {
     n: 10,
-    title: "Network & VPC — Hub-Spoke Architecture",
-    desc: "How Databricks workspaces connect in the cloud — hub-spoke topology, private endpoints, and network security zones.",
+    title: "Network & VPC/VNet — Hub-Spoke Architecture",
+    desc: "How Databricks workspaces connect in the cloud — hub-spoke topology, private endpoints, Azure Firewall / AWS NWFW, and network security zones.",
   },
   {
     n: 11,
