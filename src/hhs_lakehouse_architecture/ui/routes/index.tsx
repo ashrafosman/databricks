@@ -5118,6 +5118,235 @@ function Chapter13() {
   );
 }
 
+// ─── Addendum C: Databricks Roles & RACI ──────────────────────────────────────
+
+type RaciRole = "account" | "metastore" | "workspace" | "catalog";
+
+const ROLE_COLORS: Record<RaciRole, { bg: string; border: string; badge: string; text: string }> = {
+  account:   { bg: "bg-blue-950/60",   border: "border-blue-700",   badge: "bg-blue-700 text-blue-100",   text: "text-blue-300" },
+  metastore: { bg: "bg-purple-950/60", border: "border-purple-700", badge: "bg-purple-700 text-purple-100", text: "text-purple-300" },
+  workspace: { bg: "bg-emerald-950/60",border: "border-emerald-700",badge: "bg-emerald-700 text-emerald-100",text: "text-emerald-300" },
+  catalog:   { bg: "bg-amber-950/60",  border: "border-amber-700",  badge: "bg-amber-700 text-amber-100",  text: "text-amber-300" },
+};
+
+const ROLES: { id: RaciRole; label: string; scope: string; responsibility: string }[] = [
+  { id: "account",   label: "Account Admin",   scope: "Entire Databricks account", responsibility: "Creates workspaces & metastores, links workspaces to metastores, manages account identities/settings, assigns admin roles." },
+  { id: "metastore", label: "Metastore Admin",  scope: "One Unity Catalog metastore", responsibility: "Governs top-level UC objects, handles cross-workspace governance, ownership recovery, and break-glass grants." },
+  { id: "workspace", label: "Workspace Admin",  scope: "One workspace", responsibility: "Manages workspace membership, jobs, compute, notebooks, and workspace objects/settings." },
+  { id: "catalog",   label: "Catalog Owner",    scope: "One catalog and its children", responsibility: "Controls access inside the catalog: USE CATALOG, USE SCHEMA, downstream object access, and workspace-catalog binding." },
+];
+
+type RaciCell = "A/R" | "R" | "A" | "C" | "I" | "-";
+
+interface RaciRow {
+  activity: string;
+  account: RaciCell;
+  metastore: RaciCell;
+  workspace: RaciCell;
+  catalog: RaciCell;
+}
+
+const RACI_ROWS: RaciRow[] = [
+  { activity: "Create workspace",                                          account: "A/R", metastore: "I",   workspace: "I",   catalog: "I" },
+  { activity: "Create metastore & attach workspace",                       account: "A/R", metastore: "C",   workspace: "I",   catalog: "I" },
+  { activity: "Assign admin roles",                                        account: "A/R", metastore: "I",   workspace: "I",   catalog: "I" },
+  { activity: "Manage account identities / SCIM / account groups",        account: "A/R", metastore: "I",   workspace: "C",   catalog: "I" },
+  { activity: "Manage workspace membership, jobs, compute & settings",    account: "C",   metastore: "I",   workspace: "A/R", catalog: "I" },
+  { activity: "Create catalogs, external locations, storage credentials", account: "C",   metastore: "A/R", workspace: "C",   catalog: "I" },
+  { activity: "Create and own a business catalog",                         account: "I",   metastore: "C",   workspace: "I",   catalog: "A/R" },
+  { activity: "Grant / revoke access inside a business catalog",          account: "I",   metastore: "C",   workspace: "I",   catalog: "A/R" },
+  { activity: "Restrict catalog to specific workspaces (binding)",        account: "I",   metastore: "C",   workspace: "I",   catalog: "A/R" },
+  { activity: "Recover ownership / break-glass privilege management",     account: "C",   metastore: "A/R", workspace: "I",   catalog: "I" },
+  { activity: "Operate the default workspace catalog",                    account: "I",   metastore: "I",   workspace: "A/R", catalog: "I" },
+];
+
+const RACI_BADGE: Record<RaciCell, string> = {
+  "A/R": "bg-indigo-600 text-white font-bold",
+  "R":   "bg-blue-600 text-white font-semibold",
+  "A":   "bg-purple-600 text-white font-semibold",
+  "C":   "bg-slate-600 text-slate-200",
+  "I":   "bg-slate-800 text-slate-500",
+  "-":   "bg-transparent text-slate-700",
+};
+
+function Chapter16() {
+  const [activeRole, setActiveRole] = useState<RaciRole | null>(null);
+  const [view, setView] = useState<"roles" | "raci" | "insight">("roles");
+
+  return (
+    <div className="h-full flex flex-col gap-3 overflow-y-auto">
+      {/* Header */}
+      <div className="shrink-0">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Addendum C</span>
+        <h2 className="text-xl font-bold text-slate-100 mt-0.5">Databricks Roles &amp; RACI</h2>
+        <p className="text-slate-400 text-sm mt-1">
+          Unity Catalog operating model — who does what, accountability boundaries, and key access-control rules.
+        </p>
+      </div>
+
+      {/* View tabs */}
+      <div className="shrink-0 flex gap-2">
+        {([["roles","Roles"], ["raci","RACI Matrix"], ["insight","Key Insight"]] as [typeof view, string][]).map(([v, label]) => (
+          <button key={v} onClick={() => setView(v)}
+            className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
+              view === v ? "bg-indigo-600 border-indigo-500 text-white" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+            }`}
+          >{label}</button>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+
+        {/* ── ROLES VIEW ── */}
+        {view === "roles" && (
+          <motion.div key="roles" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.25}}
+            className="flex-1 flex flex-col gap-3"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {ROLES.map(role => {
+                const c = ROLE_COLORS[role.id];
+                const isActive = activeRole === role.id;
+                return (
+                  <button key={role.id} onClick={() => setActiveRole(isActive ? null : role.id)}
+                    className={`text-left rounded-xl border p-4 transition-all ${c.bg} ${c.border} ${isActive ? "ring-2 ring-offset-1 ring-offset-slate-950 ring-white/20" : "hover:brightness-110"}`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${c.badge}`}>{role.label}</span>
+                    </div>
+                    <p className={`text-xs font-semibold mb-1 ${c.text}`}>{role.scope}</p>
+                    <p className="text-slate-300 text-xs leading-relaxed">{role.responsibility}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Clean handoff model */}
+            <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Clean Handoff Model</p>
+              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                {[
+                  { role: "account",   arrow: true,  label: "Platform setup\nworkspaces & metastores" },
+                  { role: "metastore", arrow: true,  label: "Cross-workspace\ngovernance & break-glass" },
+                  { role: "workspace", arrow: true,  label: "Day-to-day\nworkspace ops" },
+                  { role: "catalog",   arrow: false, label: "Business domain\ndata access control" },
+                ] .map(({ role, arrow, label }) => {
+                  const c = ROLE_COLORS[role as RaciRole];
+                  return (
+                    <div key={role} className="flex items-center gap-2">
+                      <div className={`rounded-lg border px-3 py-2 ${c.bg} ${c.border} min-w-[110px]`}>
+                        <p className={`text-[10px] font-bold ${c.text}`}>{ROLES.find(r => r.id === role)?.label}</p>
+                        <p className="text-slate-400 text-[10px] mt-0.5 whitespace-pre-line leading-tight">{label}</p>
+                      </div>
+                      {arrow && <span className="text-slate-600 text-sm shrink-0">→</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── RACI VIEW ── */}
+        {view === "raci" && (
+          <motion.div key="raci" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.25}}
+            className="flex-1 flex flex-col gap-3 min-h-0"
+          >
+            <div className="flex gap-3 flex-wrap text-[10px] text-slate-400">
+              {([["A/R","Accountable + Responsible","bg-indigo-600"],["C","Consulted","bg-slate-600"],["I","Informed","bg-slate-800"]] as [RaciCell,string,string][]).map(([k,label,bg]) => (
+                <span key={k} className="flex items-center gap-1.5">
+                  <span className={`inline-block w-6 text-center rounded text-white text-[10px] font-bold py-0.5 ${bg}`}>{k}</span>
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-slate-700">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-800/80">
+                    <th className="text-left px-3 py-2 text-slate-300 font-semibold w-1/2">Activity</th>
+                    {(["account","metastore","workspace","catalog"] as RaciRole[]).map(r => (
+                      <th key={r} className={`px-3 py-2 text-center font-bold ${ROLE_COLORS[r].text}`}>
+                        {ROLES.find(x => x.id === r)?.label.replace(" Admin","").replace(" Owner","")}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {RACI_ROWS.map((row, i) => (
+                    <tr key={i} className={`border-t border-slate-800 ${i % 2 === 0 ? "bg-slate-900/40" : "bg-slate-900/20"}`}>
+                      <td className="px-3 py-2 text-slate-300">{row.activity}</td>
+                      {(["account","metastore","workspace","catalog"] as RaciRole[]).map(r => (
+                        <td key={r} className="px-3 py-2 text-center">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${RACI_BADGE[row[r]]}`}>{row[r]}</span>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── KEY INSIGHT VIEW ── */}
+        {view === "insight" && (
+          <motion.div key="insight" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.25}}
+            className="flex-1 flex flex-col gap-4"
+          >
+            {/* Main callout */}
+            <div className="rounded-xl border border-amber-700/60 bg-amber-950/30 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400 mb-2">Key Access-Control Rule</p>
+              <p className="text-slate-100 text-sm leading-relaxed font-medium">
+                A <span className="text-emerald-300 font-bold">Workspace Admin</span> does <span className="text-red-400 font-bold">not</span> automatically get table access in a business catalog just because they are a workspace admin.
+              </p>
+              <p className="text-slate-400 text-xs leading-relaxed mt-3">
+                A <span className="text-amber-300 font-semibold">Catalog Owner</span> can prevent a workspace admin from accessing tables by controlling <code className="bg-slate-800 px-1 rounded text-sky-300">USE CATALOG</code> / <code className="bg-slate-800 px-1 rounded text-sky-300">USE SCHEMA</code> grants, and can also restrict the catalog to specific workspaces using workspace-catalog binding.
+              </p>
+              <p className="text-slate-400 text-xs leading-relaxed mt-2">
+                If a workspace is <span className="text-red-400 font-semibold">not bound</span> to the catalog, access is denied even if the user has explicit grants — even workspace admins.
+              </p>
+            </div>
+
+            {/* Exceptions */}
+            <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Exceptions</p>
+              <ul className="space-y-2">
+                <li className="flex gap-2 text-xs text-slate-300">
+                  <span className="text-emerald-400 mt-0.5 shrink-0">•</span>
+                  In <span className="text-emerald-300 font-semibold mx-1">auto-enabled Unity Catalog workspaces</span>, workspace admins are the default owners of the default workspace catalog and can grant themselves access there.
+                </li>
+                <li className="flex gap-2 text-xs text-slate-300">
+                  <span className="text-purple-400 mt-0.5 shrink-0">•</span>
+                  A <span className="text-purple-300 font-semibold mx-1">Metastore Admin</span> can manage privileges and ownership across the metastore and acts as the break-glass role.
+                </li>
+              </ul>
+            </div>
+
+            {/* Practical takeaways */}
+            <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Practical Operating Model</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { color: ROLE_COLORS.account,   label: "Account Admins",   tip: "Keep limited — focused on tenant & platform setup only." },
+                  { color: ROLE_COLORS.workspace,  label: "Workspace Admins", tip: "Day-to-day workspace operations: users, jobs, compute." },
+                  { color: ROLE_COLORS.catalog,    label: "Catalog Owners",   tip: "Control business-domain access — use groups, not individuals." },
+                  { color: ROLE_COLORS.metastore,  label: "Metastore Admins", tip: "Break-glass only — cross-workspace governance and recovery." },
+                ].map(({ color, label, tip }) => (
+                  <div key={label} className={`rounded-lg border p-3 ${color.bg} ${color.border}`}>
+                    <p className={`text-[10px] font-bold ${color.text} mb-1`}>{label}</p>
+                    <p className="text-slate-300 text-xs">{tip}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Addendum: UC Architecture Across Agencies ────────────────────────────────
 
 type UCPattern = "overview" | "push" | "pull";
@@ -5788,6 +6017,11 @@ const CHAPTERS = [
     title: "Addendum B — Unity Catalog Explainer",
     desc: "De-mystifies UC hierarchy, environment isolation, group design, and workspace topology through interactive diagrams.",
   },
+  {
+    n: 16,
+    title: "Addendum C — Databricks Roles & RACI",
+    desc: "Unity Catalog roles, responsibilities, RACI matrix, and access-control boundaries — Account Admin, Metastore Admin, Workspace Admin, Catalog Owner.",
+  },
 ];
 
 function HHSChapters() {
@@ -5959,7 +6193,7 @@ function HHSChapters() {
             transition={{ duration: 0.4 }}
             className="h-full"
           >
-            {chapter === 1 ? <Chapter1 /> : chapter === 2 ? <Chapter2 /> : chapter === 3 ? <Chapter3 /> : chapter === 4 ? <Chapter4 /> : chapter === 5 ? <Chapter5 /> : chapter === 6 ? <Chapter6 /> : chapter === 7 ? <Chapter7 /> : chapter === 8 ? <Chapter8 /> : chapter === 9 ? <Chapter9 /> : chapter === 10 ? <Chapter10 /> : chapter === 11 ? <Chapter11 /> : chapter === 12 ? <Chapter12 /> : chapter === 13 ? <Chapter13 /> : chapter === 14 ? <Chapter14 /> : <Chapter15 />}
+            {chapter === 1 ? <Chapter1 /> : chapter === 2 ? <Chapter2 /> : chapter === 3 ? <Chapter3 /> : chapter === 4 ? <Chapter4 /> : chapter === 5 ? <Chapter5 /> : chapter === 6 ? <Chapter6 /> : chapter === 7 ? <Chapter7 /> : chapter === 8 ? <Chapter8 /> : chapter === 9 ? <Chapter9 /> : chapter === 10 ? <Chapter10 /> : chapter === 11 ? <Chapter11 /> : chapter === 12 ? <Chapter12 /> : chapter === 13 ? <Chapter13 /> : chapter === 14 ? <Chapter14 /> : chapter === 15 ? <Chapter15 /> : <Chapter16 />}
           </motion.div>
         </AnimatePresence>
       </main>
