@@ -5152,7 +5152,7 @@ const RACI_ROWS: RaciRow[] = [
   { activity: "Assign admin roles",                                        account: "A/R", metastore: "I",   workspace: "I",   catalog: "I" },
   { activity: "Manage account identities / SCIM / account groups",        account: "A/R", metastore: "I",   workspace: "C",   catalog: "I" },
   { activity: "Manage workspace membership, jobs, compute & settings",    account: "C",   metastore: "I",   workspace: "A/R", catalog: "I" },
-  { activity: "Create catalogs, external locations, storage credentials", account: "C",   metastore: "A/R", workspace: "C",   catalog: "I" },
+  { activity: "Create catalogs, external locations, storage credentials", account: "C",   metastore: "C",   workspace: "C",   catalog: "A/R" },
   { activity: "Create and own a business catalog",                         account: "I",   metastore: "C",   workspace: "I",   catalog: "A/R" },
   { activity: "Grant / revoke access inside a business catalog",          account: "I",   metastore: "C",   workspace: "I",   catalog: "A/R" },
   { activity: "Restrict catalog to specific workspaces (binding)",        account: "I",   metastore: "C",   workspace: "I",   catalog: "A/R" },
