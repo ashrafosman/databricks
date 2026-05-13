@@ -5169,9 +5169,52 @@ const RACI_BADGE: Record<RaciCell, string> = {
   "-":   "bg-transparent text-slate-700",
 };
 
+interface FlowStep {
+  type: "move" | "pulse";
+  fx: number; fy: number;
+  tx: number; ty: number;
+  activeRole: RaciRole;
+  color: string;
+  label: string;
+}
+
+const FLOW_STEPS: FlowStep[] = [
+  { type: "pulse", fx: 130, fy: 75,  tx: 130, ty: 75,  activeRole: "account",   color: "#3b82f6", label: "① Account Admin: create workspace & metastore" },
+  { type: "move",  fx: 130, fy: 75,  tx: 430, ty: 75,  activeRole: "account",   color: "#3b82f6", label: "② Account Admin → Metastore Admin: delegate role" },
+  { type: "move",  fx: 130, fy: 75,  tx: 130, ty: 225, activeRole: "account",   color: "#3b82f6", label: "③ Account Admin → Workspace Admin: delegate role" },
+  { type: "pulse", fx: 430, fy: 75,  tx: 430, ty: 75,  activeRole: "metastore", color: "#8b5cf6", label: "④ Metastore Admin: set up external locations & storage credentials" },
+  { type: "pulse", fx: 130, fy: 225, tx: 130, ty: 225, activeRole: "workspace", color: "#10b981", label: "⑤ Workspace Admin: add users & configure compute" },
+  { type: "move",  fx: 430, fy: 75,  tx: 430, ty: 225, activeRole: "metastore", color: "#8b5cf6", label: "⑥ Metastore Admin → Catalog Owner: delegate catalog ownership" },
+  { type: "pulse", fx: 430, fy: 225, tx: 430, ty: 225, activeRole: "catalog",   color: "#f59e0b", label: "⑦ Catalog Owner: create business catalog" },
+  { type: "pulse", fx: 430, fy: 225, tx: 430, ty: 225, activeRole: "catalog",   color: "#f59e0b", label: "⑧ Catalog Owner: grant USE CATALOG / USE SCHEMA" },
+  { type: "move",  fx: 430, fy: 225, tx: 130, ty: 225, activeRole: "catalog",   color: "#f59e0b", label: "⑨ Catalog Owner → Workspace: bind catalog to workspace" },
+  { type: "pulse", fx: 130, fy: 225, tx: 130, ty: 225, activeRole: "workspace", color: "#10b981", label: "⑩ Workspace users can now access catalog data ✓" },
+];
+
+const FLOW_NODE_POS: Record<RaciRole, { cx: number; cy: number }> = {
+  account:   { cx: 130, cy: 75 },
+  metastore: { cx: 430, cy: 75 },
+  workspace: { cx: 130, cy: 225 },
+  catalog:   { cx: 430, cy: 225 },
+};
+
 function Chapter16() {
   const [activeRole, setActiveRole] = useState<RaciRole | null>(null);
-  const [view, setView] = useState<"roles" | "raci" | "insight">("roles");
+  const [view, setView] = useState<"roles" | "raci" | "insight" | "flow">("roles");
+  const [flowStep, setFlowStep] = useState(-1);
+  const [flowDone, setFlowDone] = useState(false);
+
+  useEffect(() => {
+    setFlowStep(-1);
+    setFlowDone(false);
+  }, [view]);
+
+  function handleFlowNext() {
+    setFlowDone(false);
+    setFlowStep(s => s + 1);
+  }
+
+  const curFlowStep = FLOW_STEPS[flowStep];
 
   return (
     <div className="h-full flex flex-col gap-3 overflow-y-auto">
@@ -5186,7 +5229,7 @@ function Chapter16() {
 
       {/* View tabs */}
       <div className="shrink-0 flex gap-2">
-        {([["roles","Roles"], ["raci","RACI Matrix"], ["insight","Key Insight"]] as [typeof view, string][]).map(([v, label]) => (
+        {([["roles","Roles"], ["raci","RACI Matrix"], ["insight","Key Insight"], ["flow","Interaction Flow"]] as [typeof view, string][]).map(([v, label]) => (
           <button key={v} onClick={() => setView(v)}
             className={`px-3 py-1.5 rounded text-xs font-semibold border transition-all ${
               view === v ? "bg-indigo-600 border-indigo-500 text-white" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
@@ -5219,23 +5262,21 @@ function Chapter16() {
                 );
               })}
             </div>
-
-            {/* Clean handoff model */}
             <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Clean Handoff Model</p>
               <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                {[
-                  { role: "account",   arrow: true,  label: "Platform setup\nworkspaces & metastores" },
-                  { role: "metastore", arrow: true,  label: "Cross-workspace\ngovernance & break-glass" },
-                  { role: "workspace", arrow: true,  label: "Day-to-day\nworkspace ops" },
-                  { role: "catalog",   arrow: false, label: "Business domain\ndata access control" },
-                ] .map(({ role, arrow, label }) => {
-                  const c = ROLE_COLORS[role as RaciRole];
+                {([
+                  { role: "account",   arrow: true,  label: "Platform setup · workspaces & metastores" },
+                  { role: "metastore", arrow: true,  label: "Cross-workspace governance & break-glass" },
+                  { role: "workspace", arrow: true,  label: "Day-to-day workspace ops" },
+                  { role: "catalog",   arrow: false, label: "Business domain data access control" },
+                ] as { role: RaciRole; arrow: boolean; label: string }[]).map(({ role, arrow, label }) => {
+                  const c = ROLE_COLORS[role];
                   return (
                     <div key={role} className="flex items-center gap-2">
                       <div className={`rounded-lg border px-3 py-2 ${c.bg} ${c.border} min-w-[110px]`}>
                         <p className={`text-[10px] font-bold ${c.text}`}>{ROLES.find(r => r.id === role)?.label}</p>
-                        <p className="text-slate-400 text-[10px] mt-0.5 whitespace-pre-line leading-tight">{label}</p>
+                        <p className="text-slate-400 text-[10px] mt-0.5 leading-tight">{label}</p>
                       </div>
                       {arrow && <span className="text-slate-600 text-sm shrink-0">→</span>}
                     </div>
@@ -5293,27 +5334,24 @@ function Chapter16() {
           <motion.div key="insight" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.25}}
             className="flex-1 flex flex-col gap-4"
           >
-            {/* Main callout */}
             <div className="rounded-xl border border-amber-700/60 bg-amber-950/30 p-5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400 mb-2">Key Access-Control Rule</p>
               <p className="text-slate-100 text-sm leading-relaxed font-medium">
                 A <span className="text-emerald-300 font-bold">Workspace Admin</span> does <span className="text-red-400 font-bold">not</span> automatically get table access in a business catalog just because they are a workspace admin.
               </p>
               <p className="text-slate-400 text-xs leading-relaxed mt-3">
-                A <span className="text-amber-300 font-semibold">Catalog Owner</span> can prevent a workspace admin from accessing tables by controlling <code className="bg-slate-800 px-1 rounded text-sky-300">USE CATALOG</code> / <code className="bg-slate-800 px-1 rounded text-sky-300">USE SCHEMA</code> grants, and can also restrict the catalog to specific workspaces using workspace-catalog binding.
+                A <span className="text-amber-300 font-semibold">Catalog Owner</span> can prevent a workspace admin from accessing tables by controlling <code className="bg-slate-800 px-1 rounded text-sky-300">USE CATALOG</code> / <code className="bg-slate-800 px-1 rounded text-sky-300">USE SCHEMA</code> grants, and can restrict the catalog to specific workspaces using workspace-catalog binding.
               </p>
               <p className="text-slate-400 text-xs leading-relaxed mt-2">
-                If a workspace is <span className="text-red-400 font-semibold">not bound</span> to the catalog, access is denied even if the user has explicit grants — even workspace admins.
+                If a workspace is <span className="text-red-400 font-semibold">not bound</span> to the catalog, access is denied even with explicit grants — even for workspace admins.
               </p>
             </div>
-
-            {/* Exceptions */}
             <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Exceptions</p>
               <ul className="space-y-2">
                 <li className="flex gap-2 text-xs text-slate-300">
                   <span className="text-emerald-400 mt-0.5 shrink-0">•</span>
-                  In <span className="text-emerald-300 font-semibold mx-1">auto-enabled Unity Catalog workspaces</span>, workspace admins are the default owners of the default workspace catalog and can grant themselves access there.
+                  In <span className="text-emerald-300 font-semibold mx-1">auto-enabled Unity Catalog workspaces</span>, workspace admins are default owners of the default workspace catalog and can grant themselves access there.
                 </li>
                 <li className="flex gap-2 text-xs text-slate-300">
                   <span className="text-purple-400 mt-0.5 shrink-0">•</span>
@@ -5321,8 +5359,6 @@ function Chapter16() {
                 </li>
               </ul>
             </div>
-
-            {/* Practical takeaways */}
             <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Practical Operating Model</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -5337,6 +5373,117 @@ function Chapter16() {
                     <p className="text-slate-300 text-xs">{tip}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── INTERACTION FLOW VIEW ── */}
+        {view === "flow" && (
+          <motion.div key="flow" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:0.25}}
+            className="flex-1 flex flex-col gap-3"
+          >
+            {/* SVG diagram */}
+            <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 flex flex-col items-center gap-3">
+              <svg viewBox="0 0 560 300" className="w-full max-w-xl" style={{height:220}}>
+                {/* Background lines */}
+                <line x1="190" y1="75"  x2="370" y2="75"  stroke="#334155" strokeWidth="1.5" strokeDasharray="4 3"/>
+                <line x1="130" y1="95"  x2="130" y2="205" stroke="#334155" strokeWidth="1.5" strokeDasharray="4 3"/>
+                <line x1="430" y1="95"  x2="430" y2="205" stroke="#334155" strokeWidth="1.5" strokeDasharray="4 3"/>
+                <line x1="190" y1="225" x2="370" y2="225" stroke="#334155" strokeWidth="1.5" strokeDasharray="4 3"/>
+
+                {/* Role nodes */}
+                {(["account","metastore","workspace","catalog"] as RaciRole[]).map(role => {
+                  const pos = FLOW_NODE_POS[role];
+                  const isActive = curFlowStep?.activeRole === role;
+                  const roleInfo = ROLES.find(r => r.id === role)!;
+                  const colors: Record<RaciRole, { fill: string; stroke: string; text: string }> = {
+                    account:   { fill: isActive ? "#1e3a5f" : "#0f172a", stroke: isActive ? "#3b82f6" : "#1e40af", text: "#93c5fd" },
+                    metastore: { fill: isActive ? "#2e1065" : "#0f172a", stroke: isActive ? "#8b5cf6" : "#4c1d95", text: "#c4b5fd" },
+                    workspace: { fill: isActive ? "#052e16" : "#0f172a", stroke: isActive ? "#10b981" : "#065f46", text: "#6ee7b7" },
+                    catalog:   { fill: isActive ? "#451a03" : "#0f172a", stroke: isActive ? "#f59e0b" : "#78350f", text: "#fcd34d" },
+                  };
+                  const c = colors[role];
+                  return (
+                    <g key={role}>
+                      <rect x={pos.cx - 60} y={pos.cy - 22} width={120} height={44} rx={8}
+                        fill={c.fill} stroke={c.stroke} strokeWidth={isActive ? 2 : 1}
+                      />
+                      {isActive && (
+                        <motion.rect x={pos.cx - 60} y={pos.cy - 22} width={120} height={44} rx={8}
+                          fill="none" stroke={c.stroke} strokeWidth={3}
+                          initial={{ opacity: 0.8 }} animate={{ opacity: [0.8, 0.2, 0.8] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                      )}
+                      <text x={pos.cx} y={pos.cy - 4} textAnchor="middle" fill={c.text} fontSize={10} fontWeight="bold">{roleInfo.label.split(" ")[0]}</text>
+                      <text x={pos.cx} y={pos.cy + 10} textAnchor="middle" fill={c.text} fontSize={9} opacity={0.8}>{roleInfo.label.split(" ").slice(1).join(" ")}</text>
+                    </g>
+                  );
+                })}
+
+                {/* Animated dot */}
+                {curFlowStep && (() => {
+                  const s = curFlowStep;
+                  if (s.type === "move") {
+                    return (
+                      <motion.circle key={`dot-${flowStep}`} r={8} fill={s.color}
+                        initial={{ cx: s.fx, cy: s.fy }} animate={{ cx: s.tx, cy: s.ty }}
+                        transition={{ duration: 1.1, ease: "easeInOut" }}
+                        onAnimationComplete={() => setFlowDone(true)}
+                      />
+                    );
+                  } else {
+                    return (
+                      <g key={`pulse-${flowStep}`}>
+                        <motion.circle cx={s.fx} cy={s.fy} r={8} fill="none" stroke={s.color} strokeWidth={2}
+                          animate={{ r: [8, 26], opacity: [0.9, 0] }}
+                          transition={{ duration: 1.0, ease: "easeOut" }}
+                          onAnimationComplete={() => setFlowDone(true)}
+                        />
+                        <circle cx={s.fx} cy={s.fy} r={7} fill={s.color} opacity={0.9} />
+                      </g>
+                    );
+                  }
+                })()}
+              </svg>
+
+              {/* Step label */}
+              <div className="text-center min-h-[36px] flex flex-col items-center justify-center">
+                {flowStep === -1 && (
+                  <p className="text-slate-500 text-xs">Click Start to walk through the role interaction flow</p>
+                )}
+                {flowStep >= 0 && curFlowStep && (
+                  <p className="text-slate-200 text-sm font-medium">{curFlowStep.label}</p>
+                )}
+                {flowStep >= FLOW_STEPS.length && (
+                  <p className="text-green-400 text-sm font-semibold">✓ Platform fully configured</p>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center gap-3">
+                <span className="text-slate-500 text-xs">
+                  {flowStep < 0 ? "0" : Math.min(flowStep + 1, FLOW_STEPS.length)}&nbsp;/&nbsp;{FLOW_STEPS.length}
+                </span>
+                {flowStep === -1 && (
+                  <button onClick={() => { setFlowDone(false); setFlowStep(0); }}
+                    className="px-4 py-1.5 rounded text-xs font-semibold border bg-indigo-700 border-indigo-500 text-white hover:bg-indigo-600 transition-all">
+                    Start
+                  </button>
+                )}
+                {flowStep >= 0 && flowDone && flowStep < FLOW_STEPS.length - 1 && (
+                  <button onClick={handleFlowNext}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold border bg-slate-800 border-indigo-600 text-indigo-300 hover:bg-indigo-900/50 transition-all">
+                    Next <ChevronRight className="w-3 h-3"/>
+                  </button>
+                )}
+                {flowStep >= 0 && (flowDone || flowStep >= FLOW_STEPS.length) && (
+                  <button onClick={() => { setFlowStep(-1); setFlowDone(false); }}
+                    className="px-3 py-1.5 rounded text-xs font-semibold border bg-slate-800 border-slate-600 text-slate-400 hover:text-slate-200 transition-all">
+                    Reset
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
