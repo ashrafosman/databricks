@@ -3806,11 +3806,11 @@ function Chapter10() {
                     <span className="text-[12px] text-slate-400">VPC/VNet CIDR Prefix</span>
                     <span className="text-[12px] font-mono text-blue-300">/{calcVpcPrefix} ({ipSpace(vpcIPs)} IPs)</span>
                   </div>
-                  <input type="range" min={14} max={22} step={1} value={calcVpcPrefix}
+                  <input type="range" min={16} max={24} step={1} value={calcVpcPrefix}
                     onChange={e => setCalcVpcPrefix(Number(e.target.value))}
                     className="w-full h-1.5 rounded-full accent-blue-500 cursor-pointer" />
                   <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
-                    <span>/14 (256k)</span><span>/22 (1k)</span>
+                    <span>/16 (65k)</span><span>/24 (256)</span>
                   </div>
                 </div>
 
@@ -3819,8 +3819,8 @@ function Chapter10() {
                     <span className="text-[12px] text-slate-400">Subnet Prefix</span>
                     <span className="text-[12px] font-mono text-sky-300">/{calcSubnetPrefix} ({ipSpace(subnetIPs)} IPs)</span>
                   </div>
-                  <input type="range" min={19} max={26} step={1} value={calcSubnetPrefix}
-                    onChange={e => setCalcSubnetPrefix(Number(e.target.value))}
+                  <input type="range" min={Math.max(calcVpcPrefix + 1, 19)} max={26} step={1} value={Math.max(calcSubnetPrefix, calcVpcPrefix + 1)}
+                    onChange={e => setCalcSubnetPrefix(Math.max(Number(e.target.value), calcVpcPrefix + 1))}
                     className="w-full h-1.5 rounded-full accent-sky-500 cursor-pointer" />
                   <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
                     <span>/19 (8k)</span><span>/26 (64)</span>
