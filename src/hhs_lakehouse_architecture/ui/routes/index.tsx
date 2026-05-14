@@ -3496,7 +3496,7 @@ function Chapter10() {
             </g>
           )}
 
-          {panelTab === "calc" && phase >= 3 && (() => {
+          {panelTab === "calc" && phase >= 3 && calcSubnetPrefix > calcVpcPrefix && (() => {
             const subnetIPs = Math.pow(2, 32 - calcSubnetPrefix);
             const nodesPerSubnet = Math.floor((subnetIPs - 5) / 2);
             const vpcIPsLocal = Math.pow(2, 32 - calcVpcPrefix);
@@ -3780,13 +3780,14 @@ function Chapter10() {
         {panelTab === "calc" && (() => {
           const vpcIPs = Math.pow(2, 32 - calcVpcPrefix);
           const subnetIPs = Math.pow(2, 32 - calcSubnetPrefix);
-          const nodesPerSubnet = Math.floor((subnetIPs - 5) / 2);
+          const invalidSubnet = calcSubnetPrefix <= calcVpcPrefix;
+          const nodesPerSubnet = invalidSubnet ? 0 : Math.floor((subnetIPs - 5) / 2);
           // Each workspace needs 2 same-sized subnets: cluster + container
           const subnetsPerWs = 2;
-          const subnetsAvailable = Math.floor(vpcIPs / subnetIPs);
+          const subnetsAvailable = invalidSubnet ? 0 : Math.floor(vpcIPs / subnetIPs);
           const maxWorkspacesInVpc = Math.floor(subnetsAvailable / subnetsPerWs);
-          const fits = calcWorkspaces <= maxWorkspacesInVpc;
-          const vpcUsedPct = Math.min(100, Math.round((calcWorkspaces * subnetsPerWs * subnetIPs) / vpcIPs * 100));
+          const fits = !invalidSubnet && calcWorkspaces <= maxWorkspacesInVpc;
+          const vpcUsedPct = invalidSubnet ? 0 : Math.min(100, Math.round((calcWorkspaces * subnetsPerWs * subnetIPs) / vpcIPs * 100));
           const ipSpace = (n: number) =>
             n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` :
             n >= 1_000 ? `${(n/1_000).toFixed(0)}k` : String(n);
@@ -3819,8 +3820,8 @@ function Chapter10() {
                     <span className="text-[12px] text-slate-400">Subnet Prefix</span>
                     <span className="text-[12px] font-mono text-sky-300">/{calcSubnetPrefix} ({ipSpace(subnetIPs)} IPs)</span>
                   </div>
-                  <input type="range" min={Math.max(calcVpcPrefix + 1, 19)} max={26} step={1} value={Math.max(calcSubnetPrefix, calcVpcPrefix + 1)}
-                    onChange={e => setCalcSubnetPrefix(Math.max(Number(e.target.value), calcVpcPrefix + 1))}
+                  <input type="range" min={19} max={26} step={1} value={calcSubnetPrefix}
+                    onChange={e => setCalcSubnetPrefix(Number(e.target.value))}
                     className="w-full h-1.5 rounded-full accent-sky-500 cursor-pointer" />
                   <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
                     <span>/19 (8k)</span><span>/26 (64)</span>
@@ -3844,11 +3845,16 @@ function Chapter10() {
               {/* Results */}
               <div className="space-y-1.5">
                 <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Results</p>
+                {invalidSubnet && (
+                  <p className="text-[11px] text-red-400 bg-red-950/40 border border-red-800/50 rounded px-2 py-1">
+                    ⚠ Subnet prefix (/{calcSubnetPrefix}) must be larger than VPC prefix (/{calcVpcPrefix})
+                  </p>
+                )}
                 {[
-                  { label: "Nodes per subnet", value: nodesPerSubnet.toLocaleString(), color: "#7dd3fc" },
-                  { label: "Max workspaces in VPC", value: maxWorkspacesInVpc.toString(), color: fits ? "#6ee7b7" : "#fca5a5" },
-                  { label: "VPC address usage", value: `${vpcUsedPct}%`, color: vpcUsedPct > 80 ? "#fca5a5" : "#fcd34d" },
-                  { label: "Fits in VPC?", value: fits ? "✓ Yes" : "✗ Overflow", color: fits ? "#6ee7b7" : "#fca5a5" },
+                  { label: "Nodes per subnet", value: invalidSubnet ? "—" : nodesPerSubnet.toLocaleString(), color: "#7dd3fc" },
+                  { label: "Max workspaces in VPC", value: invalidSubnet ? "—" : maxWorkspacesInVpc.toString(), color: fits ? "#6ee7b7" : "#fca5a5" },
+                  { label: "VPC address usage", value: invalidSubnet ? "—" : `${vpcUsedPct}%`, color: vpcUsedPct > 80 ? "#fca5a5" : "#fcd34d" },
+                  { label: "Fits in VPC?", value: invalidSubnet ? "—" : fits ? "✓ Yes" : "✗ Overflow", color: fits ? "#6ee7b7" : "#fca5a5" },
                 ].map((row, i) => (
                   <div key={i} className="flex justify-between items-center">
                     <span className="text-[13px] text-slate-500">{row.label}</span>
